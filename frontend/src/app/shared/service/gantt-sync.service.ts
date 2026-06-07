@@ -76,9 +76,10 @@ export class GanttSyncService implements OnDestroy {
     this.rxStomp.connected$.pipe(take(1)).subscribe(() => {
       console.log('[WebSocket] STOMP 連線成功！等待初始資料同步...');
       // 💡 加上微小延遲 (500ms)，確保 setupYjsSync 有足夠時間把伺服器的初始封包寫進 ydoc
+      // 給予充分的時間讓第一台電腦的資料飛過來，避免菜鳥視窗搶先判斷為空！
       setTimeout(() => {
         this.isReady$.next(true); // 舉起綠旗，通知 Component 可以開始做事了
-      }, 500);
+      }, 2500);
     });
   }
 

@@ -2,6 +2,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostListener,
   NgZone,
   OnDestroy,
   OnInit,
@@ -58,26 +59,14 @@ export class CoEditorComponent implements OnInit, OnDestroy {
   projectId: string = '';
   currentTenantId: string = '';
 
-  // 🌟 獨立細胞防抖計時器沙盒
+  activeCollaborators: { name: string; color: string; initials: string }[] = [];
   private saveTimers = new Map<string, any>();
 
-  // 🌟 遠端鼠標追蹤所需變數
   @ViewChild('workspace', { static: true }) workspaceRef!: ElementRef;
   remoteCursors: any[] = [];
   private mouseMoveSub: Subscription | undefined;
 
-  currentUser = {
-    name:
-      'User ' +
-      Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, '0'),
-    color:
-      '#' +
-      Math.floor(Math.random() * 16777215)
-        .toString(16)
-        .padStart(6, '0'),
-  };
+  currentUser = this.getOrCreateSessionUser();
 
   activeSelections: Map<string, any> = new Map();
   private yjsObserver: (events: any, transaction: any) => void;
@@ -100,7 +89,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       ) {
         return;
       }
-
       console.log(
         `[Yjs Observer] 允許渲染畫面！觸發來源: ${transaction.origin || '遠端協作者'}`,
       );
@@ -108,11 +96,27 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     };
   }
 
+  // ==========================================
+  // 🌟 核心防禦一：攔截瀏覽器重新整理 (F5) 或關閉分頁
+  // 確保在斷線前，將自己的狀態從房間內強制抹除，防止幽靈頭像殘留！
+  // ==========================================
+  @HostListener('window:beforeunload', ['$event'])
+  unloadHandler(event: Event) {
+    this.forceRemoveSelfFromRoom();
+  }
+
+  private forceRemoveSelfFromRoom() {
+    if (this.syncService && this.syncService.awareness) {
+      try {
+        this.syncService.awareness.setLocalState(null);
+      } catch (e) {}
+    }
+  }
+
   ngOnInit() {
     this.currentTenantId =
       this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || 'WPG';
 
-    // 🌟 啟動本地滑鼠軌跡監聽 (節流 50ms 避免高頻發送塞爆通道)
     this.mouseMoveSub = fromEvent<MouseEvent>(document, 'mousemove')
       .pipe(throttleTime(50))
       .subscribe((event) => {
@@ -122,7 +126,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
         const relativeX = event.clientX - rect.left;
         const relativeY = event.clientY - rect.top;
 
-        // 限制只有在表格工作區範疇內移動時，才同步鼠標座標
         if (
           relativeX >= 0 &&
           relativeY >= 0 &&
@@ -138,47 +141,39 @@ export class CoEditorComponent implements OnInit, OnDestroy {
 
     this.route.paramMap.subscribe((params) => {
       const routeId = params.get('id');
+      const targetId =
+        routeId || this.storageService.getLocalStorageItem('last_project_id');
 
-      if (routeId) {
-        console.log(`[Router] 偵測到專案切換！目標 ProjectId: ${routeId}`);
-        this.cleanupCurrentRoom();
-        this.projectId = routeId;
-        this.storageService.setLocalStorageItem('last_project_id', routeId);
-        this.initCollaborationRoom();
-      } else {
-        const lastSavedProjectId =
-          this.storageService.getLocalStorageItem('last_project_id');
-
-        if (lastSavedProjectId) {
-          console.log(
-            `[Router] 網址無 ID，自動啟用上次瀏覽的專案: ${lastSavedProjectId}`,
-          );
-          this.cleanupCurrentRoom();
-          this.projectId = lastSavedProjectId;
-          this.initCollaborationRoom();
-        } else {
-          console.warn(
-            '[Router] 網址與本地快取皆無專案 ID，表格將維持完全空白。',
-          );
-          this.tasks = [];
-        }
+      if (!targetId) {
+        console.warn(
+          '[Router] 網址與本地快取皆無專案 ID，表格將維持完全空白。',
+        );
+        this.tasks = [];
+        return;
       }
+
+      // ==========================================
+      // 🌟 核心防禦二：阻斷 Angular 路由雙重觸發
+      // 如果要切換的房間 ID 根本沒有變，直接阻擋，嚴禁執行 cleanup 導致畫面自毀消失！
+      // ==========================================
+      if (this.projectId === targetId) {
+        return;
+      }
+
+      console.log(`[Router] 偵測到專案切換！目標 ProjectId: ${targetId}`);
+      this.cleanupCurrentRoom();
+      this.projectId = targetId;
+      this.storageService.setLocalStorageItem('last_project_id', targetId);
+      this.initCollaborationRoom();
     });
   }
 
-  /**
-   * === 欄位變更與游標攔截 ===
-   */
   onFieldChange(taskId: string, field: string, value: any) {
-    // 1. Track A（協作軌）：零延遲寫入 Yjs 讓線上夥伴即時看到
     this.syncService.updateTaskField(taskId, field, value);
 
-    // 2. Track B（持久軌）：細胞級別防抖保護，徹底解耦改 A 壞 B 問題
     const timerKey = `${taskId}-${field}`;
-
-    if (this.saveTimers.has(timerKey)) {
+    if (this.saveTimers.has(timerKey))
       clearTimeout(this.saveTimers.get(timerKey));
-    }
 
     this.saveTimers.set(
       timerKey,
@@ -189,14 +184,9 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     );
   }
 
-  /**
-   * 🌟 核心路由分流器
-   */
   private dispatchPersistCommand(taskId: string, field: string) {
     const currentTask = this.tasks.find((t) => t.taskId === taskId);
     if (!currentTask) return;
-
-    console.log(`[CQRS Pipeline] 意圖導向命令出發。欄位: [${field}]`);
 
     switch (field) {
       case 'name':
@@ -207,11 +197,8 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             this.currentTenantId,
             currentTask.name,
           )
-          .subscribe({
-            error: (err) => console.error('[CQRS Error] 名稱持久化失敗:', err),
-          });
+          .subscribe();
         break;
-
       case 'module':
         this.projectService
           .updateTaskModule(
@@ -220,16 +207,12 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             this.currentTenantId,
             currentTask.module || '',
           )
-          .subscribe({
-            error: (err) => console.error('[CQRS Error] 模組持久化失敗:', err),
-          });
+          .subscribe();
         break;
-
       case 'startDate':
       case 'endDate':
         const safeStart = currentTask.startDate ? currentTask.startDate : null;
         const safeEnd = currentTask.endDate ? currentTask.endDate : null;
-
         this.projectService
           .updateTaskSchedule(
             this.projectId,
@@ -238,11 +221,8 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             safeStart,
             safeEnd,
           )
-          .subscribe({
-            error: (err) => console.error('[CQRS Error] 時程持久化失敗:', err),
-          });
+          .subscribe();
         break;
-
       case 'progress':
         this.projectService
           .updateTaskProgress(
@@ -251,15 +231,11 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             this.currentTenantId,
             Number(currentTask.progress),
           )
-          .subscribe({
-            error: (err) => console.error('[CQRS Error] 進度持久化失敗:', err),
-          });
+          .subscribe();
         break;
-
       case 'dependencies':
         this.persistDependencies(taskId);
         break;
-
       case 'assigneeId':
       case 'reviewerId':
         this.projectService
@@ -270,11 +246,8 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             currentTask.assigneeId || '',
             currentTask.reviewerId || '',
           )
-          .subscribe({
-            error: (err) => console.error('[CQRS Error] 人員持久化失敗:', err),
-          });
+          .subscribe();
         break;
-
       case 'taskType':
         this.projectService
           .updateTaskType(
@@ -283,22 +256,19 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             this.currentTenantId,
             currentTask.taskType || 'FEATURE',
           )
-          .subscribe({
-            error: (err) => console.error('[CQRS Error] 分類持久化失敗:', err),
-          });
+          .subscribe();
         break;
     }
   }
 
   ngOnDestroy() {
     this.cleanupCurrentRoom();
-    if (this.mouseMoveSub) {
-      this.mouseMoveSub.unsubscribe();
-    }
+    if (this.mouseMoveSub) this.mouseMoveSub.unsubscribe();
   }
 
   private cleanupCurrentRoom() {
     console.log(`[System] 開始清理舊專案房間狀態... [${this.projectId}]`);
+    this.forceRemoveSelfFromRoom(); // 離開時也確保抹除狀態
 
     if (this.syncService.sharedTasks && this.yjsObserver) {
       try {
@@ -310,6 +280,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     this.tasks = [];
     this.activeSelections.clear();
     this.remoteCursors = [];
+    this.activeCollaborators = [];
   }
 
   private initCollaborationRoom() {
@@ -320,25 +291,30 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     this.syncService.joinProjectRoom(this.projectId, this.currentTenantId);
     this.syncService.sharedTasks.observeDeep(this.yjsObserver);
 
+    this.syncService.awareness.setLocalStateField('user', this.currentUser);
+
     this.syncService.awareness.on('change', () => {
       const states = Array.from(
         this.syncService.awareness.getStates().values(),
       );
+
       this.activeSelections.clear();
-      this.remoteCursors = []; // 🌟 每次狀態變更重置遠端滑鼠陣列
+      this.remoteCursors = [];
+      this.activeCollaborators = [];
+      const seenUsers = new Set<string>();
 
       states.forEach((state: any) => {
-        // 1. 處理單元格聚焦高亮
         if (
           state.selection &&
           state.user &&
           state.user.name !== this.currentUser.name
         ) {
-          const key = `${state.selection.taskId}-${state.selection.field}`;
-          this.activeSelections.set(key, state.user);
+          this.activeSelections.set(
+            `${state.selection.taskId}-${state.selection.field}`,
+            state.user,
+          );
         }
 
-        // 2. 🌟 處理遠端同步過來的實時鼠標座標
         if (
           state.cursor &&
           state.user &&
@@ -351,13 +327,21 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             y: state.cursor.y,
           });
         }
+
+        if (state.user && state.user.name !== this.currentUser.name) {
+          if (!seenUsers.has(state.user.name)) {
+            seenUsers.add(state.user.name);
+            this.activeCollaborators.push({
+              name: state.user.name,
+              color: state.user.color,
+              initials: state.user.name.substring(0, 2).toUpperCase(),
+            });
+          }
+        }
       });
       this.cdr.detectChanges();
     });
 
-    // ==========================================
-    // 🌟 核心同步守衛：等 Yjs 回報握手與雲端同步完成，才可以查記憶體狀態
-    // ==========================================
     this.syncService.isReady$
       .pipe(
         filter((isReady) => isReady === true),
@@ -373,13 +357,18 @@ export class CoEditorComponent implements OnInit, OnDestroy {
 
   private syncYjsToAngular(): void {
     this.zone.run(() => {
-      console.log('[Yjs Sync] 正在 Angular Zone 內執行資料同步...');
-
       const yjsTasksArray = Array.from(
         this.syncService.sharedTasks.values(),
       ) as Task[];
 
-      // 🌟 核心排序邏輯：以開始日期 (startDate) 為第一主鍵排序
+      // 萬一遇到罕見的遠端清空攻擊，予以攔截並保留本地畫面
+      if (yjsTasksArray.length === 0 && this.tasks.length > 0) {
+        console.warn(
+          '[System] ⚠️ 攔截到異常的空陣列覆寫事件，為保護畫面已忽略此次同步。',
+        );
+        return;
+      }
+
       yjsTasksArray.sort((a, b) => {
         const dateA = a.startDate ? new Date(a.startDate).getTime() : Infinity;
         const dateB = b.startDate ? new Date(b.startDate).getTime() : Infinity;
@@ -389,18 +378,12 @@ export class CoEditorComponent implements OnInit, OnDestroy {
           const idB = b.displayId || '';
           return idA.localeCompare(idB, undefined, { numeric: true });
         }
-
         return dateA - dateB;
       });
 
       this.tasks = [...yjsTasksArray];
-
       this.cdr.markForCheck();
       this.cdr.detectChanges();
-
-      console.log(
-        `[Yjs Sync] 同步完成，已依開始日期排序。筆數: ${this.tasks.length}`,
-      );
     });
   }
 
@@ -408,18 +391,25 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     const currentYjsSize = Array.from(
       this.syncService.sharedTasks.keys(),
     ).length;
-    console.log(
-      `[System] 當前 Yjs 共享記憶體內的任務筆數為: ${currentYjsSize}`,
-    );
 
     if (currentYjsSize === 0) {
-      console.log(
-        '[System] 偵測到全新的協作房間，正在從後端資料庫初始化共享記憶體...',
-      );
+      console.log('[System] 本地 Yjs 為空，向資料庫發出請求...');
       this.syncService
         .getProjectTasks(this.projectId, this.currentTenantId)
         .subscribe({
           next: (backendTasks: Task[]) => {
+            const sizeAfterHttp = Array.from(
+              this.syncService.sharedTasks.keys(),
+            ).length;
+            if (sizeAfterHttp > 0) {
+              console.warn(
+                '[System] ⚠️ 遠端 Yjs 資料已在 HTTP 回傳前抵達！自動放棄資料庫樂觀覆寫。',
+              );
+              this.syncYjsToAngular();
+              return;
+            }
+
+            console.log('[System] 寫入資料庫初始資料至 Yjs 共享記憶體...');
             this.syncService.ydoc.transact(() => {
               backendTasks.forEach((t) => {
                 t.dependencies = t.dependencies || [];
@@ -427,9 +417,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
               });
             }, 'db-load');
           },
-          error: (err) => {
-            console.error('[Error] 無法從後端取得任務資料:', err);
-          },
+          error: (err) => console.error('[Error] 無法從後端取得任務資料:', err),
         });
     } else {
       console.log('[System] 協作房間內已有其他線上資料，直接同步至本地畫面。');
@@ -460,7 +448,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
 
   getDependenciesText(dependencies: string[]): string {
     if (!dependencies || dependencies.length === 0) return '';
-
     return dependencies
       .map((taskId) => {
         const task = this.tasks.find((t) => t.taskId === taskId);
@@ -476,23 +463,18 @@ export class CoEditorComponent implements OnInit, OnDestroy {
           .map((id) => id.trim())
           .filter((id) => id.length > 0)
       : [];
-
     task.dependencies = displayIdArray;
     this.onFieldChange(task.taskId, 'dependencies', displayIdArray);
   }
 
   addNewTask(): void {
     if (this.isCreatingTask) return;
-
     this.isCreatingTask = true;
     const defaultName = '新任務 ' + (this.tasks.length + 1);
-
-    console.log('[CQRS] 正在發送建立任務 Command 至後端 Actor...');
 
     this.syncService.createTask(defaultName).subscribe({
       next: (res: TaskAddedResult) => {
         this.isCreatingTask = false;
-
         if (res && res.success === false) {
           this.systemMessageService.showError(
             '同步失敗',
@@ -502,12 +484,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
         }
 
         const serverTaskId = res.taskId;
-        const successMessage = res.message;
-
-        if (!serverTaskId) {
-          console.error('[CQRS Error] 後端回傳的 ID 異常！', res);
-          return;
-        }
+        if (!serverTaskId) return;
 
         const cachedCode = localStorage.getItem('currentProjectCode');
         const prefix = cachedCode || 'TSK';
@@ -524,26 +501,18 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             }
           }
         }
-
         const predictedDisplayId = `${prefix}-${maxNumber + 1}`;
-
-        console.log(
-          `[CQRS] 任務建立成功！ID: ${serverTaskId}, 預測編號: ${predictedDisplayId}`,
-        );
-
         this.handleTaskCreationSuccess(
           serverTaskId,
           predictedDisplayId,
           defaultName,
         );
-
-        this.systemMessageService.showSuccess('建立成功', successMessage);
+        this.systemMessageService.showSuccess('建立成功', res.message);
       },
       error: (err) => {
         this.isCreatingTask = false;
         const realErrorMsg =
           err.error?.message || err.error || '後端拒絕受理新任務建立';
-        console.error('[CQRS Error] 伺服器錯誤:', err);
         this.systemMessageService.showError(
           '建立失敗',
           typeof realErrorMsg === 'string'
@@ -559,10 +528,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     displayId: string,
     taskName: string,
   ) {
-    console.log(
-      `[CQRS] 準備將任務實體對接至協作記憶體。ID: ${taskId}, 編號: ${displayId}`,
-    );
-
     const newTaskData: Task = {
       taskId: taskId,
       displayId: displayId,
@@ -574,11 +539,9 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       progress: 0,
       dependencies: [],
     };
-
     this.syncService.ydoc.transact(() => {
       this.syncService.sharedTasks.set(taskId, newTaskData);
     }, 'task-create');
-
     this.cdr.detectChanges();
   }
 
@@ -595,14 +558,9 @@ export class CoEditorComponent implements OnInit, OnDestroy {
   private persistDependencies(taskId: string) {
     const currentTask = this.tasks.find((t) => t.taskId === taskId);
     if (!currentTask) return;
-
-    const rawDisplayIds = currentTask.dependencies || [];
-    const taskIds = this.resolveDisplayIdsToTaskIds(rawDisplayIds);
-
-    console.log(
-      `[CQRS] 轉譯 DisplayID [${rawDisplayIds}] -> TaskID [${taskIds}]`,
+    const taskIds = this.resolveDisplayIdsToTaskIds(
+      currentTask.dependencies || [],
     );
-
     this.projectService
       .updateTaskDependencies(
         this.projectId,
@@ -610,15 +568,32 @@ export class CoEditorComponent implements OnInit, OnDestroy {
         this.currentTenantId,
         taskIds,
       )
-      .subscribe({
-        next: () => console.log(`[CQRS Success] 相依性更新成功`),
-        error: (err) => console.error('[CQRS Error] 相依性更新失敗:', err),
-      });
+      .subscribe();
   }
 
-  // ==========================================
-  // 🌟 動態提煉表格 Excel 篩選選項 (Excel-like Filters)
-  // ==========================================
+  private getOrCreateSessionUser() {
+    try {
+      const cached = sessionStorage.getItem('chrono_weaver_user');
+      if (cached) return JSON.parse(cached);
+    } catch (e) {}
+    const newUser = {
+      name:
+        'User ' +
+        Math.floor(Math.random() * 1000)
+          .toString()
+          .padStart(3, '0'),
+      color:
+        '#' +
+        Math.floor(Math.random() * 16777215)
+          .toString(16)
+          .padStart(6, '0'),
+    };
+    try {
+      sessionStorage.setItem('chrono_weaver_user', JSON.stringify(newUser));
+    } catch (e) {}
+    return newUser;
+  }
+
   get moduleOptions() {
     const modules = Array.from(
       new Set(

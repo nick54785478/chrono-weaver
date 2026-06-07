@@ -1,4 +1,7 @@
-<div class="surface-card p-4 shadow-2 border-round h-full flex flex-column">
+<div
+  #workspace
+  class="surface-card p-4 shadow-2 border-round h-full flex flex-column position-relative overflow-hidden"
+>
   <div class="flex justify-content-between align-items-center mb-4">
     <div>
       <h2 class="text-2xl font-bold m-0 text-color">專案任務 WBS 共編</h2>
@@ -26,31 +29,24 @@
         <span class="text-sm text-color-secondary font-medium">
           <i class="pi pi-users mr-1 text-primary"></i>線上協作者：
         </span>
-        <p-avatarGroup>
+
+        <p-avatarGroup *ngIf="activeCollaborators.length > 0; else noOneOnline">
           <p-avatar
-            label="Jan"
+            *ngFor="let user of activeCollaborators | slice: 0 : 3"
+            [label]="user.initials"
             shape="circle"
             size="large"
             [style]="{
-              'background-color': '#2196F3',
+              'background-color': user.color,
               color: '#ffffff',
               'font-weight': 'bold',
             }"
-            pTooltip="1號協作者"
+            [pTooltip]="user.name"
           ></p-avatar>
+
           <p-avatar
-            label="Feb"
-            shape="circle"
-            size="large"
-            [style]="{
-              'background-color': '#4CAF50',
-              color: '#ffffff',
-              'font-weight': 'bold',
-            }"
-            pTooltip="2號協作者"
-          ></p-avatar>
-          <p-avatar
-            label="+2"
+            *ngIf="activeCollaborators.length > 3"
+            [label]="'+' + (activeCollaborators.length - 3)"
             shape="circle"
             size="large"
             [style]="{
@@ -58,8 +54,13 @@
               color: '#ffffff',
               'font-weight': 'bold',
             }"
+            pTooltip="還有其他協作者"
           ></p-avatar>
         </p-avatarGroup>
+
+        <ng-template #noOneOnline>
+          <span class="text-sm text-400 font-italic">目前只有你</span>
+        </ng-template>
       </div>
     </div>
   </div>
@@ -131,8 +132,7 @@
                   optionValue="value"
                   appendTo="body"
                   class="p-column-filter"
-                >
-                </p-multiSelect>
+                ></p-multiSelect>
               </ng-template>
             </p-columnFilter>
           </div>
@@ -163,8 +163,7 @@
                   optionValue="value"
                   appendTo="body"
                   class="p-column-filter"
-                >
-                </p-multiSelect>
+                ></p-multiSelect>
               </ng-template>
             </p-columnFilter>
           </div>
@@ -195,8 +194,7 @@
                   optionValue="value"
                   appendTo="body"
                   class="p-column-filter"
-                >
-                </p-multiSelect>
+                ></p-multiSelect>
               </ng-template>
             </p-columnFilter>
           </div>
@@ -555,11 +553,7 @@
       </tr>
     </ng-template>
   </p-table>
-</div>
-<div
-  #workspace
-  class="surface-card p-4 shadow-2 border-round h-full flex flex-column position-relative overflow-hidden"
->
+
   <ng-container *ngFor="let cursor of remoteCursors">
     <div
       class="remote-cursor"
@@ -581,7 +575,6 @@
           stroke-linejoin="round"
         />
       </svg>
-
       <span class="cursor-name" [style.background-color]="cursor.color">{{
         cursor.name
       }}</span>

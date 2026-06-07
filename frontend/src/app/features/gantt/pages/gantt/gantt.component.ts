@@ -116,7 +116,7 @@ export class GanttComponent implements OnInit, AfterViewInit, OnDestroy {
       let startDate = new Date(t.startDate as string);
       let endDate = new Date(t.endDate as string);
 
-      if (endDate < startDate) {
+      if (endDate.getTime() <= startDate.getTime()) {
         endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 1);
       }
