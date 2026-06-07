@@ -58,7 +58,8 @@ export class CoEditorComponent implements OnInit, OnDestroy {
 
   projectId: string = '';
   currentTenantId: string = '';
-
+  // 🌟 新增這行：用來記憶表格目前的分頁位置 (第一筆資料的 Index)
+  firstOffset: number = 0;
   activeCollaborators: { name: string; color: string; initials: string }[] = [];
   private saveTimers = new Map<string, any>();
 
@@ -136,8 +137,20 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             x: relativeX,
             y: relativeY,
           });
+        } else {
+          // 💡 關鍵驅魔：一但滑鼠出界，立刻向所有人廣播「隱藏我的鼠標」
+          this.syncService.awareness.setLocalStateField('cursor', null);
         }
       });
+
+    // ==========================================
+    // 🌟 修正二：當使用者切換瀏覽器分頁時，自動隱藏鼠標
+    // ==========================================
+    fromEvent(document, 'visibilitychange').subscribe(() => {
+      if (document.hidden && this.syncService.awareness) {
+        this.syncService.awareness.setLocalStateField('cursor', null);
+      }
+    });
 
     this.route.paramMap.subscribe((params) => {
       const routeId = params.get('id');
