@@ -1,0 +1,100 @@
+<div
+  class="flex justify-content-center align-items-center min-h-screen bg-gray-50 p-4"
+>
+  <p-card
+    styleClass="shadow-4 border-round"
+    [style]="{ width: '100%', 'max-width': '450px' }"
+  >
+    <ng-template pTemplate="header">
+      <div
+        class="p-4 border-bottom-1 surface-border bg-primary border-round-top"
+      >
+        <h2 class="text-xl font-bold m-0 text-white">
+          <i class="pi pi-folder-plus mr-2"></i>初始化新專案
+        </h2>
+        <p class="text-white-alpha-70 m-0 mt-1 text-xs">
+          請輸入基本資訊以初始化 CQRS/ES 領域聚合根狀態
+        </p>
+      </div>
+    </ng-template>
+
+    <form
+      [formGroup]="projectForm"
+      (ngSubmit)="onSubmit()"
+      class="flex flex-column gap-4 py-2"
+    >
+      <p-message
+        severity="error"
+        [text]="errorMessage"
+        *ngIf="errorMessage"
+        styleClass="w-full"
+      ></p-message>
+
+      <div class="flex flex-column gap-2">
+        <label for="projectCode" class="font-semibold text-color text-sm">
+          專案代號 <span class="text-red-500">*</span>
+        </label>
+        <input
+          pInputText
+          id="projectCode"
+          formControlName="projectCode"
+          placeholder="例如: MAR, JUP, VEN"
+          class="w-full p-inputtext-sm uppercase"
+          [maxLength]="6"
+        />
+        <small class="text-color-secondary text-xs block"
+          >這將會作為此專案下所有任務流水號的前綴字串（如：MAR-1,
+          JUP-2）。</small
+        >
+
+        <p-message
+          severity="error"
+          text="專案代號為必填，且必須是 2~6 碼的大寫英數字"
+          *ngIf="isFieldInvalid('projectCode')"
+          styleClass="w-full mt-1"
+        ></p-message>
+      </div>
+
+      <div class="flex flex-column gap-2">
+        <label for="projectName" class="font-semibold text-color text-sm">
+          專案名稱 <span class="text-red-500">*</span>
+        </label>
+        <input
+          pInputText
+          id="projectName"
+          formControlName="projectName"
+          placeholder="例如: Mars 火星登陸計畫、Virgo 核心架構重構"
+          class="w-full p-inputtext-sm"
+        />
+
+        <p-message
+          severity="error"
+          text="專案名稱為必填，且長度至少需要 2 個字元"
+          *ngIf="isFieldInvalid('projectName')"
+          styleClass="w-full mt-1"
+        ></p-message>
+      </div>
+
+      <div
+        class="flex justify-content-end gap-2 mt-2 border-top-1 surface-border pt-3"
+      >
+        <button
+          pButton
+          type="button"
+          label="取消"
+          class="p-button-text p-button-sm p-button-secondary"
+          [disabled]="loading"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          label="啟動專案"
+          icon="pi pi-check"
+          class="p-button-sm"
+          [loading]="loading"
+          [disabled]="projectForm.invalid"
+        ></button>
+      </div>
+    </form>
+  </p-card>
+</div>

@@ -1,0 +1,55 @@
+<div
+  class="w-full md:w-16rem h-full surface-card border-right-1 surface-border flex flex-column justify-content-between p-3 shadow-1 z-1"
+>
+  <div>
+    <div class="flex align-items-center gap-2 mb-5 px-2 mt-2">
+      <i class="pi pi-box text-primary text-3xl"></i>
+      <span class="text-xl font-bold text-color">Chrono Weaver</span>
+    </div>
+
+    <ul class="list-none p-0 m-0">
+      <li>
+        <a
+          routerLink="/create-project"
+          routerLinkActive="surface-hover text-primary font-bold"
+          class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-hover transition-duration-150 transition-colors p-ripple text-decoration-none"
+        >
+          <i class="pi pi-folder-plus mr-3 text-lg"></i>
+          <span class="font-medium">建立新專案</span>
+        </a>
+      </li>
+
+      <li>
+        <a
+          routerLink="/co-editor"
+          routerLinkActive="surface-hover text-primary font-bold"
+          class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-hover transition-duration-150 transition-colors p-ripple text-decoration-none mt-2"
+        >
+          <i class="pi pi-table mr-3 text-lg"></i>
+          <span class="font-medium">即時共編表格</span>
+        </a>
+      </li>
+
+      <li>
+        <a
+          routerLink="/gantt"
+          routerLinkActive="surface-hover text-primary font-bold"
+          class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-hover transition-duration-150 transition-colors p-ripple text-decoration-none mt-2"
+        >
+          <i class="pi pi-chart-bar mr-3 text-lg"></i>
+          <span class="font-medium">專案甘特圖</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="mt-auto">
+    <hr class="mb-3 mx-0 border-top-1 border-none surface-border" />
+    <a
+      class="flex align-items-center cursor-pointer p-3 border-round text-700 hover:surface-hover transition-duration-150 transition-colors p-ripple text-decoration-none"
+    >
+      <i class="pi pi-user mr-3 text-primary text-lg"></i>
+      <span class="font-medium">{{ currentUser }}</span>
+    </a>
+  </div>
+</div>

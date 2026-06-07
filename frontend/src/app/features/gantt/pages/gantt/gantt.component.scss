@@ -1,0 +1,105 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.gantt-wrapper {
+  background: white;
+  min-height: 500px;
+}
+
+/* Frappe Gantt 著色與美化 */
+::ng-deep {
+  .gantt {
+    .bar-label {
+      fill: #333;
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    /* 🌟 核心修正：加上 .bar-wrapper 前綴提升權重，並使用 !important 強制覆蓋原廠設定 */
+    /* 同時補上 .bar-progress，讓進度條顏色與背景色搭配 (進度條顏色稍微深一點) */
+
+    .bar-wrapper.epic-blue .bar {
+      fill: #3b82f6 !important;
+    }
+    .bar-wrapper.epic-blue .bar-progress {
+      fill: #2563eb !important;
+    }
+
+    .bar-wrapper.epic-green .bar {
+      fill: #10b981 !important;
+    }
+    .bar-wrapper.epic-green .bar-progress {
+      fill: #059669 !important;
+    }
+
+    .bar-wrapper.epic-purple .bar {
+      fill: #8b5cf6 !important;
+    }
+    .bar-wrapper.epic-purple .bar-progress {
+      fill: #7c3aed !important;
+    }
+
+    .bar-wrapper.epic-orange .bar {
+      fill: #f59e0b !important;
+    }
+    .bar-wrapper.epic-orange .bar-progress {
+      fill: #d97706 !important;
+    }
+
+    .bar-wrapper.epic-teal .bar {
+      fill: #06b6d4 !important;
+    }
+    .bar-wrapper.epic-teal .bar-progress {
+      fill: #0891b2 !important;
+    }
+
+    /* 預設未分類 (沒有 Epic) 的任務顏色 */
+    .bar-wrapper.gantt-default .bar {
+      fill: #a5b4fc !important;
+    }
+    .bar-wrapper.gantt-default .bar-progress {
+      fill: #4f46e5 !important;
+    }
+
+    /* 懸停效果 */
+    .bar-wrapper:hover .bar {
+      opacity: 0.8;
+    }
+
+    /* 調整網格線條顏色，讓畫面更乾淨 */
+    .grid-header {
+      fill: #f9fafb;
+      stroke: #e5e7eb;
+    }
+
+    .grid-row {
+      fill: #ffffff;
+    }
+
+    .row-even {
+      fill: #fcfcfc;
+    }
+  }
+
+  /* 🌟 HTML 圖例方塊用的背景色 (必須也有 !important 確保生效) */
+  .bg-epic-blue {
+    background-color: #3b82f6 !important;
+  }
+  .bg-epic-green {
+    background-color: #10b981 !important;
+  }
+  .bg-epic-purple {
+    background-color: #8b5cf6 !important;
+  }
+  .bg-epic-orange {
+    background-color: #f59e0b !important;
+  }
+  .bg-epic-teal {
+    background-color: #06b6d4 !important;
+  }
+  .bg-gantt-default {
+    background-color: #a5b4fc !important;
+  }
+}

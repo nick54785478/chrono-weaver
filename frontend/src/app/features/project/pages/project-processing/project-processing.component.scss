@@ -1,0 +1,11 @@
+::v-deep(.custom-green-spinner) {
+  // 讓原本黑黑的圓盤背景變透明
+  background: transparent !important;
+  border-radius: 50%;
+
+  // 讓旋轉的那條動態線條變成綠色
+  .p-progress-spinner-circle {
+    stroke: #10b981 !important; // 翡翠綠 (綠色 500)
+    animation: p-progress-spinner-dash 1.5s ease-in-out infinite;
+  }
+}

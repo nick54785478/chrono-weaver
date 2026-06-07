@@ -1,0 +1,51 @@
+<div class="surface-card p-4 shadow-2 border-round h-full flex flex-column">
+  <div class="flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="text-2xl font-bold m-0 text-color">專案甘特圖時程</h2>
+      <p class="text-color-secondary mt-1 mb-0 text-sm">
+        自動依據 Epic (模組) 著色並呈現任務依賴關係
+      </p>
+    </div>
+
+    <div class="flex align-items-center gap-2">
+      <span class="text-sm font-medium mr-2">視圖模式：</span>
+      <p-selectButton
+        [options]="viewModes"
+        [(ngModel)]="selectedViewMode"
+        (onChange)="changeViewMode($event.value)"
+        optionLabel="label"
+        optionValue="value"
+        class="p-button-sm"
+      >
+      </p-selectButton>
+
+      <button
+        pButton
+        icon="pi pi-refresh"
+        class="p-button-rounded p-button-text p-button-secondary ml-3"
+        (click)="loadGanttData()"
+        pTooltip="重新整理資料"
+      ></button>
+    </div>
+  </div>
+  <div
+    *ngIf="epicLegend.length > 0"
+    class="flex flex-wrap align-items-center gap-4 mb-3 p-3 border-round bg-gray-50 border-1 surface-border"
+  >
+    <span class="text-sm font-semibold text-color-secondary"
+      ><i class="pi pi-tags mr-1"></i>模組 (Epic) 圖例：</span
+    >
+    <div *ngFor="let epic of epicLegend" class="flex align-items-center gap-2">
+      <div
+        class="w-1rem h-1rem border-round shadow-1"
+        [ngClass]="epic.bgClass"
+      ></div>
+      <span class="text-sm font-medium text-color">{{ epic.name }}</span>
+    </div>
+  </div>
+  <div
+    class="gantt-wrapper flex-1 overflow-auto border-1 surface-border border-round"
+  >
+    <svg #gantt_canvas id="gantt"></svg>
+  </div>
+</div>

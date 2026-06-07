@@ -1,0 +1,590 @@
+<div class="surface-card p-4 shadow-2 border-round h-full flex flex-column">
+  <div class="flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="text-2xl font-bold m-0 text-color">專案任務 WBS 共編</h2>
+      <p class="text-color-secondary mt-1 mb-0 text-sm">
+        點擊儲存格編輯，修改將即時同步。當前身分：<strong
+          [style.color]="currentUser.color"
+          >{{ currentUser.name }}</strong
+        >
+      </p>
+    </div>
+
+    <div class="flex align-items-center gap-3">
+      <button
+        pButton
+        type="button"
+        label="新增任務"
+        icon="pi pi-plus"
+        class="p-button-success p-button-sm shadow-1"
+        (click)="addNewTask()"
+      ></button>
+
+      <div
+        class="flex align-items-center gap-3 bg-gray-50 py-2 px-3 border-round border-1 surface-border"
+      >
+        <span class="text-sm text-color-secondary font-medium">
+          <i class="pi pi-users mr-1 text-primary"></i>線上協作者：
+        </span>
+        <p-avatarGroup>
+          <p-avatar
+            label="Jan"
+            shape="circle"
+            size="large"
+            [style]="{
+              'background-color': '#2196F3',
+              color: '#ffffff',
+              'font-weight': 'bold',
+            }"
+            pTooltip="1號協作者"
+          ></p-avatar>
+          <p-avatar
+            label="Feb"
+            shape="circle"
+            size="large"
+            [style]="{
+              'background-color': '#4CAF50',
+              color: '#ffffff',
+              'font-weight': 'bold',
+            }"
+            pTooltip="2號協作者"
+          ></p-avatar>
+          <p-avatar
+            label="+2"
+            shape="circle"
+            size="large"
+            [style]="{
+              'background-color': '#9c27b0',
+              color: '#ffffff',
+              'font-weight': 'bold',
+            }"
+          ></p-avatar>
+        </p-avatarGroup>
+      </div>
+    </div>
+  </div>
+
+  <p-table
+    [value]="tasks"
+    dataKey="taskId"
+    editMode="cell"
+    [tableStyle]="{ 'min-width': '105rem' }"
+    styleClass="p-datatable-gridlines p-datatable-sm flex-1"
+    [paginator]="true"
+    [rows]="15"
+    [rowsPerPageOptions]="[10, 15, 30, 50]"
+    [showCurrentPageReport]="true"
+    currentPageReportTemplate="顯示第 {first} 至 {last} 筆任務，共 {totalRecords} 筆"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th style="width: 8%">
+          <div class="flex align-items-center justify-content-between">
+            任務 ID
+            <p-columnFilter
+              type="text"
+              field="displayId"
+              display="menu"
+              matchMode="contains"
+              [showOperator]="false"
+              [showAddButton]="false"
+            ></p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 14%">
+          <div class="flex align-items-center justify-content-between">
+            任務名稱
+            <p-columnFilter
+              type="text"
+              field="name"
+              display="menu"
+              matchMode="contains"
+              [showOperator]="false"
+              [showAddButton]="false"
+            ></p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 10%">
+          <div class="flex align-items-center justify-content-between">
+            模組 (Epic)
+            <p-columnFilter
+              field="module"
+              matchMode="in"
+              display="menu"
+              [showMatchModes]="false"
+              [showOperator]="false"
+              [showAddButton]="false"
+            >
+              <ng-template
+                pTemplate="filter"
+                let-value
+                let-filter="filterCallback"
+              >
+                <p-multiSelect
+                  [ngModel]="value"
+                  [options]="moduleOptions"
+                  placeholder="選擇模組"
+                  (onChange)="filter($event.value)"
+                  optionLabel="label"
+                  optionValue="value"
+                  appendTo="body"
+                  class="p-column-filter"
+                >
+                </p-multiSelect>
+              </ng-template>
+            </p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 8%">
+          <div class="flex align-items-center justify-content-between">
+            類型
+            <p-columnFilter
+              field="taskType"
+              matchMode="in"
+              display="menu"
+              [showMatchModes]="false"
+              [showOperator]="false"
+              [showAddButton]="false"
+            >
+              <ng-template
+                pTemplate="filter"
+                let-value
+                let-filter="filterCallback"
+              >
+                <p-multiSelect
+                  [ngModel]="value"
+                  [options]="taskTypeOptions"
+                  placeholder="選擇類型"
+                  (onChange)="filter($event.value)"
+                  optionLabel="label"
+                  optionValue="value"
+                  appendTo="body"
+                  class="p-column-filter"
+                >
+                </p-multiSelect>
+              </ng-template>
+            </p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 9%">
+          <div class="flex align-items-center justify-content-between">
+            負責人
+            <p-columnFilter
+              field="assigneeId"
+              matchMode="in"
+              display="menu"
+              [showMatchModes]="false"
+              [showOperator]="false"
+              [showAddButton]="false"
+            >
+              <ng-template
+                pTemplate="filter"
+                let-value
+                let-filter="filterCallback"
+              >
+                <p-multiSelect
+                  [ngModel]="value"
+                  [options]="assigneeOptions"
+                  placeholder="選擇負責人"
+                  (onChange)="filter($event.value)"
+                  optionLabel="label"
+                  optionValue="value"
+                  appendTo="body"
+                  class="p-column-filter"
+                >
+                </p-multiSelect>
+              </ng-template>
+            </p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 9%">審核者</th>
+        <th style="width: 10%">依賴</th>
+
+        <th style="width: 9%">
+          <div class="flex align-items-center justify-content-between">
+            開始日期
+            <p-columnFilter
+              type="date"
+              field="startDate"
+              display="menu"
+              [showOperator]="false"
+              [showAddButton]="false"
+            ></p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 9%">結束日期</th>
+
+        <th style="width: 7%">
+          <div class="flex align-items-center justify-content-between">
+            進度
+            <p-columnFilter
+              type="numeric"
+              field="progress"
+              display="menu"
+              [showOperator]="false"
+              [showAddButton]="false"
+            ></p-columnFilter>
+          </div>
+        </th>
+
+        <th style="width: 7%">狀態</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-task>
+      <tr>
+        <td class="font-medium text-primary-600 font-mono">
+          {{ task.displayId || task.taskId }}
+        </td>
+
+        <td [pEditableColumn]="task.name" pEditableColumnField="name">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="task.name"
+                (ngModelChange)="onFieldChange(task.taskId, 'name', $event)"
+                (focus)="onCellFocus(task.taskId, 'name')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <span class="font-semibold">{{ task.name }}</span>
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'name') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-left': '6px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td [pEditableColumn]="task.module" pEditableColumnField="module">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="task.module"
+                (ngModelChange)="onFieldChange(task.taskId, 'module', $event)"
+                (focus)="onCellFocus(task.taskId, 'module')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+                placeholder="例如: 購物車"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <span class="text-color-secondary font-medium">
+                <i class="pi pi-folder mr-1 text-xs" *ngIf="task.module"></i>
+                {{ task.module || "-" }}
+              </span>
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'module') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-left': '6px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td [pEditableColumn]="task.taskType" pEditableColumnField="taskType">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="task.taskType"
+                (ngModelChange)="onFieldChange(task.taskId, 'taskType', $event)"
+                (focus)="onCellFocus(task.taskId, 'taskType')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <span
+                class="border-round bg-primary-reverse text-primary font-semibold px-2 py-1 text-xs"
+                >{{ task.taskType || "未分類" }}</span
+              >
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'taskType') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-left': '6px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td
+          [pEditableColumn]="task.assigneeId"
+          pEditableColumnField="assigneeId"
+        >
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="task.assigneeId"
+                (ngModelChange)="
+                  onFieldChange(task.taskId, 'assigneeId', $event)
+                "
+                (focus)="onCellFocus(task.taskId, 'assigneeId')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center gap-2">
+                <i class="pi pi-user text-primary" *ngIf="task.assigneeId"></i>
+                <span>{{ task.assigneeId || "-" }}</span>
+                <p-tag
+                  *ngIf="getCollaborator(task.taskId, 'assigneeId') as user"
+                  [value]="user.name"
+                  [style]="{
+                    'background-color': user.color,
+                    'font-size': '10px',
+                  }"
+                  [rounded]="true"
+                ></p-tag>
+              </div>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td
+          [pEditableColumn]="task.reviewerId"
+          pEditableColumnField="reviewerId"
+        >
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="text"
+                [(ngModel)]="task.reviewerId"
+                (ngModelChange)="
+                  onFieldChange(task.taskId, 'reviewerId', $event)
+                "
+                (focus)="onCellFocus(task.taskId, 'reviewerId')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <div class="flex align-items-center gap-2">
+                <i class="pi pi-user text-primary" *ngIf="task.reviewerId"></i>
+                <span>{{ task.reviewerId || "-" }}</span>
+                <p-tag
+                  *ngIf="getCollaborator(task.taskId, 'reviewerId') as user"
+                  [value]="user.name"
+                  [style]="{
+                    'background-color': user.color,
+                    'font-size': '10px',
+                  }"
+                  [rounded]="true"
+                ></p-tag>
+              </div>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td
+          [pEditableColumn]="task.dependencies"
+          pEditableColumnField="dependencies"
+        >
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="text"
+                [ngModel]="getDependenciesText(task.dependencies)"
+                (ngModelChange)="updateDependencies(task, $event)"
+                (focus)="onCellFocus(task.taskId, 'dependencies')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm font-semibold text-primary"
+                placeholder="例: T-001"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <span
+                *ngIf="task.dependencies?.length; else noDep"
+                class="text-primary font-medium"
+                >{{ getDependenciesText(task.dependencies) }}</span
+              >
+              <ng-template #noDep
+                ><span class="text-color-secondary">-</span></ng-template
+              >
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'dependencies') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-left': '6px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td [pEditableColumn]="task.startDate" pEditableColumnField="startDate">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="date"
+                placeholder="YYYY-MM-DD"
+                [(ngModel)]="task.startDate"
+                (ngModelChange)="
+                  onFieldChange(task.taskId, 'startDate', $event)
+                "
+                (focus)="onCellFocus(task.taskId, 'startDate')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <span>{{ task.startDate || "未設定" }}</span>
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'startDate') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-left': '6px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td [pEditableColumn]="task.endDate" pEditableColumnField="endDate">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="date"
+                placeholder="YYYY-MM-DD"
+                [(ngModel)]="task.endDate"
+                (ngModelChange)="onFieldChange(task.taskId, 'endDate', $event)"
+                (focus)="onCellFocus(task.taskId, 'endDate')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <span>{{ task.endDate || "未設定" }}</span>
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'endDate') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-left': '6px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td [pEditableColumn]="task.progress" pEditableColumnField="progress">
+          <p-cellEditor>
+            <ng-template pTemplate="input">
+              <input
+                pInputText
+                type="number"
+                min="0"
+                max="100"
+                [(ngModel)]="task.progress"
+                (ngModelChange)="onFieldChange(task.taskId, 'progress', $event)"
+                (focus)="onCellFocus(task.taskId, 'progress')"
+                (blur)="onCellBlur()"
+                class="w-full p-inputtext-sm"
+              />
+            </ng-template>
+            <ng-template pTemplate="output">
+              <p-progressBar
+                [value]="task.progress"
+                [showValue]="true"
+                [style]="{ height: '14px' }"
+              ></p-progressBar>
+              <p-tag
+                *ngIf="getCollaborator(task.taskId, 'progress') as user"
+                [value]="user.name"
+                [style]="{
+                  'background-color': user.color,
+                  'font-size': '10px',
+                  'margin-top': '4px',
+                }"
+                [rounded]="true"
+              ></p-tag>
+            </ng-template>
+          </p-cellEditor>
+        </td>
+
+        <td>
+          <p-tag
+            [value]="getDerivedStatus(task.progress).label"
+            [severity]="getDerivedStatus(task.progress).severity"
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
+<div
+  #workspace
+  class="surface-card p-4 shadow-2 border-round h-full flex flex-column position-relative overflow-hidden"
+>
+  <ng-container *ngFor="let cursor of remoteCursors">
+    <div
+      class="remote-cursor"
+      [style.left.px]="cursor.x"
+      [style.top.px]="cursor.y"
+      [style.color]="cursor.color"
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M2.83398 0.635986L14.498 6.46799C15.228 6.83299 15.15 7.90499 14.373 8.16399L9.36298 9.83399L7.69298 14.844C7.43398 15.621 6.36198 15.699 5.99698 14.969L0.165985 3.30599C-0.219015 2.53599 0.448985 1.68599 1.25898 1.95599L2.83398 0.635986Z"
+          stroke="white"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+        />
+      </svg>
+
+      <span class="cursor-name" [style.background-color]="cursor.color">{{
+        cursor.name
+      }}</span>
+    </div>
+  </ng-container>
+</div>
