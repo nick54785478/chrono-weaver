@@ -9,7 +9,6 @@ import { ProjectCreatedResource } from '../models/project-created-response';
   providedIn: 'root',
 })
 export class ProjectService {
-  // 🌟 將 environment 的 URL 抽成類別內部的主 baseUrlProperty (/api/projects)
   private baseUrl = `${environment.apiEndpoint}/projects`;
 
   constructor(private http: HttpClient) {}
@@ -34,7 +33,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 實作：從 CQRS Read Model 獲取指定專案轄下的所有任務清單 (用於中轉輪詢)
+   * 實作：從 CQRS Read Model 獲取指定專案轄下的所有任務清單 (用於中轉輪詢)
    * @param projectId 目標專案唯一識別碼
    * @param tenantId 租戶識別碼
    */
@@ -53,7 +52,7 @@ export class ProjectService {
       );
   }
   /**
-   * 🌟 意圖 1：更新任務排程時間 (PUT)
+   * 意圖 1：更新任務排程時間 (PUT)
    */
   public updateTaskSchedule(
     projectId: string,
@@ -72,7 +71,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 意圖 2：更新任務進度百分比 (PUT)
+   * 意圖 2：更新任務進度百分比 (PUT)
    */
   public updateTaskProgress(
     projectId: string,
@@ -86,7 +85,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 意圖 3：更新前置相依相依性 (PUT)
+   * 意圖 3：更新前置相依相依性 (PUT)
    */
   public updateTaskDependencies(
     projectId: string,
@@ -104,7 +103,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 意圖 4：指派任務負責人與審核者 (PATCH)
+   * 意圖 4：指派任務負責人與審核者 (PATCH)
    */
   public updateTaskPersonnel(
     projectId: string,
@@ -123,7 +122,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 意圖 5：變更任務標籤標記類型 (PATCH)
+   * 意圖 5：變更任務標籤標記類型 (PATCH)
    */
   public updateTaskType(
     projectId: string,
@@ -141,7 +140,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 意圖 6：更新任務名稱 (PATCH)
+   * 意圖 6：更新任務名稱 (PATCH)
    */
   public updateTaskName(
     projectId: string,
@@ -161,7 +160,7 @@ export class ProjectService {
   }
 
   /**
-   * 🌟 意圖 7：更新任務所屬模組/Epic (PATCH)
+   * 意圖 7：更新任務所屬模組/Epic (PATCH)
    */
   public updateTaskModule(
     projectId: string,
