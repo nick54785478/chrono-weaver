@@ -49,18 +49,19 @@ public class ProjectCommandService {
 	 * 建立全新的專案 (創世操作)
 	 *
 	 * @param tenantId    租戶識別碼
-	 * @param projectCode 🌟 新增：專案代號 (用於任務流水號前綴，例如 "WPG", "API")
+	 * @param projectCode 專案代號 (用於任務流水號前綴，例如 "WPG", "API")
 	 * @param projectName 專案名稱
+	 * @param ownerId     Project Owner ID
 	 * @return 包含生成的 Project ID 的執行結果
 	 */
-	public CompletionStage<ProjectCreatedResult> createProject(String tenantId, String projectCode,
-			String projectName) {
+	public CompletionStage<ProjectCreatedResult> createProject(String tenantId, String projectCode, String projectName,
+			String ownerId) {
 		String projectId = this.generateId();
 		EntityRef<ProjectCommand> entityRef = getEntityRef(tenantId, projectId);
 
 		return entityRef
 				.<ProjectResponse>ask(replyTo -> new ProjectCommand.CreateProject(tenantId, projectId, projectCode,
-						projectName, replyTo), ASK_TIMEOUT)
+						projectName, ownerId, replyTo), ASK_TIMEOUT)
 				.thenApply(response -> new ProjectCreatedResult(response.success(), projectId, response.message()));
 	}
 
@@ -82,7 +83,7 @@ public class ProjectCommandService {
 
 		return entityRef
 				.<ProjectResponse>ask(replyTo -> new ProjectCommand.AddTask(taskId, taskName, replyTo), ASK_TIMEOUT)
-				// 🌟 修正：乖乖把 response.message() 放到 message 欄位就好，不要假會去塞 displayId
+				// 修正：乖乖把 response.message() 放到 message 欄位就好，不要假會去塞 displayId
 				.thenApply(response -> new TaskAddedResult(response.success(), taskId, response.message()));
 	}
 
@@ -153,7 +154,7 @@ public class ProjectCommandService {
 				replyTo -> new ProjectCommand.UpdateTaskPersonnel(taskId, assigneeId, reviewerId, replyTo), ASK_TIMEOUT)
 				.thenApply(response -> new TaskUpdatedResult(response.success(), taskId, response.message()));
 	}
-	
+
 	/**
 	 * 更新任務所屬的模組 (Epic / 大功能)。
 	 *

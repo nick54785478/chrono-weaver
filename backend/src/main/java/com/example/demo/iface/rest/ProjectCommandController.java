@@ -56,8 +56,8 @@ public class ProjectCommandController {
 	public CompletionStage<ResponseEntity<?>> createProject(@RequestHeader("X-Tenant-ID") String tenantId,
 			@RequestBody CreateProjectResource resource) {
 
-		// 🌟 把 resource.projectCode() 傳進去
-		return commandService.createProject(tenantId, resource.projectCode(), resource.name())
+		// 把 resource.projectCode() 傳進去
+		return commandService.createProject(tenantId, resource.projectCode(), resource.name(), resource.ownerId())
 				.thenApply(this::handleResult);
 	}
 
@@ -87,10 +87,10 @@ public class ProjectCommandController {
 	public CompletionStage<ResponseEntity<?>> updateTaskName(@RequestHeader("X-Tenant-ID") String tenantId,
 			@PathVariable String projectId, @PathVariable String taskId, @RequestBody UpdateTaskNameResource resource) {
 
-	    return commandService.updateTaskName(tenantId, projectId, taskId, resource.name())
-	            .thenApply(this::handleResult);
+		return commandService.updateTaskName(tenantId, projectId, taskId, resource.name())
+				.thenApply(this::handleResult);
 	}
-	
+
 	/**
 	 * 更新任務的排程時間 (可用於甘特圖拖曳操作)
 	 * <p>
@@ -165,7 +165,7 @@ public class ProjectCommandController {
 		return commandService.updateTaskType(tenantId, projectId, taskId, resource.taskType())
 				.thenApply(this::handleResult);
 	}
-	
+
 	/**
 	 * 更新任務所屬的模組 (Epic / 大功能)
 	 * <p>

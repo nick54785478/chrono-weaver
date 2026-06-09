@@ -61,7 +61,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
   tasks: Task[] = [];
   projectId: string = '';
   currentTenantId: string = '';
-
+  firstOffset: number = 0;
   // 用來記憶 PrimeNG 表格目前的分頁位置 (第一筆資料的 Index)，防止 Yjs 同步時表格跳回第一頁  firstOffset: number = 0;
   activeCollaborators: { name: string; color: string; initials: string }[] = [];
   private saveTimers = new Map<string, any>();

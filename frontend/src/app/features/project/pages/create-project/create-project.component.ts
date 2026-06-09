@@ -20,6 +20,7 @@ import { SystemStorageKey } from '../../../../core/enums/system-storage.enum';
 import { SystemMessageService } from '../../../../shared/service/system-message.service';
 import { CommandResult } from '../../../../shared/models/command-result.model';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DropdownModule } from 'primeng/dropdown';
 
 @Component({
   selector: 'app-create-project',
@@ -32,6 +33,7 @@ import { HttpErrorResponse } from '@angular/common/http';
     ButtonModule,
     MessagesModule,
     MessageModule,
+    DropdownModule,
   ],
   templateUrl: './create-project.component.html',
   styleUrl: './create-project.component.scss',
@@ -40,6 +42,12 @@ export class CreateProjectComponent implements OnInit {
   projectForm!: FormGroup;
   loading: boolean = false;
   errorMessage: string = '';
+
+  // 🌟 1. 新增：暫時寫死的專案負責人選項 (後續可替換為從 API 獲取)
+  ownerOptions = [
+    { label: '107054', value: '107054' },
+    { label: '118056', value: '118056' },
+  ];
 
   constructor(
     private fb: FormBuilder,
@@ -59,6 +67,7 @@ export class CreateProjectComponent implements OnInit {
       ],
       // 專案名稱驗證：必填
       projectName: ['', [Validators.required, Validators.minLength(2)]],
+      ownerId: ['', [Validators.required]],
     });
   }
 
@@ -72,59 +81,46 @@ export class CreateProjectComponent implements OnInit {
     }
 
     this.loading = true;
-    const { projectCode, projectName } = this.projectForm.value;
+
+    // 🌟 3. 解構賦值時，把 ownerId 一併拿出來
+    const { projectCode, projectName, ownerId } = this.projectForm.value;
 
     const currentTenant =
       this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || 'WPG';
 
+    // 🌟 4. 記得去 ProjectService 將 createProject 的參數補上 ownerId！
     this.projectService
-      .createProject(projectCode, projectName, currentTenant)
+      .createProject(projectCode, projectName, currentTenant, ownerId)
       .subscribe({
         next: (res: any) => {
           this.loading = false;
-
-          // 正常防禦：萬一後端回傳 HTTP 200 但 success 為 false
           if (res && res.success === false) {
             this.errorMessage = res.message || '專案建立失敗';
             this.systemMessageService.showError('操作拒絕', this.errorMessage);
             return;
           }
 
-          // 提取 UUID
           const generatedProjectId = res.projectId || res.id || res.data || res;
-
-          localStorage.setItem('currentProjectCode', projectCode); // 確保這裡存入了 ProjectCode 供後續取用
+          localStorage.setItem('currentProjectCode', projectCode);
           this.handleSuccessRedirect(projectCode, generatedProjectId);
         },
         error: (err: HttpErrorResponse) => {
           this.loading = false;
-          console.error(
-            '[CQRS Error] 🚨 完整錯誤物件 (請點開看詳細內容):',
-            err,
-          );
+          console.error('[CQRS Error] 🚨 完整錯誤物件:', err);
 
-          // ==========================================
-          // 🕵️ 案情診斷 1：其實成功了，但 Angular 誤判為 JSON 解析錯誤
-          // ==========================================
           if (err.status === 200 || err.status === 201) {
             console.warn(
-              '[CQRS] 後端其實回傳了成功狀態碼，但前端解析 JSON 失敗。嘗試強行提取 ID...',
+              '[CQRS] 後端回傳了成功狀態碼，但前端解析 JSON 失敗。嘗試強行提取 ID...',
             );
-
-            // 當 Angular 解析 JSON 失敗時，會把原始的純文字塞在 err.error.text
             const rawResponseText = err.error?.text || '';
-            const generatedProjectId = rawResponseText.replace(/["']/g, ''); // 移除可能的雙引號
+            const generatedProjectId = rawResponseText.replace(/["']/g, '');
 
             if (generatedProjectId) {
-              // 強制執行成功邏輯！
               this.handleSuccessRedirect(projectCode, generatedProjectId);
               return;
             }
           }
 
-          // ==========================================
-          // 🕵️ 案情診斷 2：CORS 跨網域阻擋
-          // ==========================================
           if (err.status === 0) {
             this.errorMessage =
               'CORS 跨網域請求被阻擋！請檢查 Spring Boot 的 @CrossOrigin 設定。';
@@ -135,14 +131,9 @@ export class CreateProjectComponent implements OnInit {
             return;
           }
 
-          // ==========================================
-          // 🕵️ 案情診斷 3：後端真正丟出的業務規則防呆 (HTTP 400/500)
-          // ==========================================
           let errorMsg = '系統發生預期外錯誤，請稍後再試';
-
           if (err.error) {
             const backendResponse = err.error;
-            // 精準抓取各種可能的錯誤屬性
             errorMsg =
               backendResponse.message ||
               backendResponse.error ||
@@ -155,7 +146,6 @@ export class CreateProjectComponent implements OnInit {
         },
       });
   }
-
   /**
    * 🌟 獨立抽出的成功導頁邏輯，讓 next 和 error(200 OK 誤判) 都能共用
    */

@@ -15,7 +15,7 @@ public sealed interface ProjectEvent {
 	/**
 	 * 專案已建立事件
 	 */
-	record ProjectCreated(String tenantId, String projectId, String projectCode, String name) implements ProjectEvent {
+	record ProjectCreated(String tenantId, String projectId, String projectCode, String name, String ownerId) implements ProjectEvent {
 	}
 
 	/**

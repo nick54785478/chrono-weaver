@@ -64,4 +64,5 @@ public class ProjectQueryController {
 		List<GanttTaskGottenResult> data = projectQueryService.getGanttData(projectId);
 		return ResponseEntity.ok(new GanttTaskGottenResource("200", "Success", data));
 	}
+
 }

@@ -1,4 +1,4 @@
-package com.example.demo.config;
+package com.example.demo.config.config;
 
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Configuration;
 import com.example.demo.application.domain.project.event.ProjectEvent;
 import com.example.demo.iface.event.ProjectProjectionHandler;
 import com.example.demo.infra.actor.ProjectEventSourcedActor;
+import com.example.demo.infra.actor.ProjectTeamEventSourcedActor;
 
 @Configuration
 public class PekkoConfig {
@@ -35,16 +36,31 @@ public class PekkoConfig {
 	@Bean
 	public ClusterSharding clusterSharding(ActorSystem<Void> system) {
 		ClusterSharding sharding = ClusterSharding.get(system);
-
+		
+		// 註冊 ProjectEventSourcedActor
 		sharding.init(Entity.of(ProjectEventSourcedActor.ENTITY_TYPE_KEY, entityContext -> {
 			String entityId = entityContext.getEntityId();
-			// 💡 將 split("\\|") 改為 split("_")
+			// 將 split("\\|") 改為 split("_")
 			String[] parts = entityId.split("_");
 			String tenantId = parts[0];
 			String projectId = parts[1];
 
 			return ProjectEventSourcedActor.create(tenantId, projectId);
 		}));
+		
+		// 註冊 ProjectTeamEventSourcedActor
+		sharding.init(Entity.of(
+	            ProjectTeamEventSourcedActor.ENTITY_TYPE_KEY,
+	            entityContext -> {
+	                // 解開 tenantId_projectId
+	                String[] parts = entityContext.getEntityId().split("_", 2);
+	                String tenantId = parts[0];
+	                String projectId = parts[1];
+	                
+	                // 回傳剛才寫好的 Team Actor 實體
+	                return ProjectTeamEventSourcedActor.create(tenantId, projectId);
+	            }
+	        ));
 
 		return sharding;
 	}

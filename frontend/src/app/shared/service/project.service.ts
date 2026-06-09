@@ -18,13 +18,20 @@ export class ProjectService {
    * @param projectCode 專案代號 (例如: MAR, JUP)
    * @param name 專案名稱
    * @param tenantId 由外部傳入的租戶識別碼
+   * @param ownerId 專案擁有者 ID
    */
-  public createProject(projectCode: string, name: string, tenantId: string) {
+  public createProject(
+    projectCode: string,
+    name: string,
+    tenantId: string,
+    ownerId: string,
+  ) {
     const headers = new HttpHeaders().set('X-Tenant-ID', tenantId);
 
     const body = {
       projectCode: projectCode.trim().toUpperCase(),
       name: name.trim(),
+      ownerId: ownerId,
     };
 
     return this.http.post<ProjectCreatedResource>(this.baseUrl, body, {

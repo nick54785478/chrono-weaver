@@ -46,7 +46,6 @@
           >這將會作為此專案下所有任務流水號的前綴字串（如：MAR-1,
           JUP-2）。</small
         >
-
         <p-message
           severity="error"
           text="專案代號為必填，且必須是 2~6 碼的大寫英數字"
@@ -66,11 +65,33 @@
           placeholder="例如: Mars 火星登陸計畫、Virgo 核心架構重構"
           class="w-full p-inputtext-sm"
         />
-
         <p-message
           severity="error"
           text="專案名稱為必填，且長度至少需要 2 個字元"
           *ngIf="isFieldInvalid('projectName')"
+          styleClass="w-full mt-1"
+        ></p-message>
+      </div>
+
+      <div class="flex flex-column gap-2">
+        <label for="ownerId" class="font-semibold text-color text-sm">
+          專案負責人 (PO) <span class="text-red-500">*</span>
+        </label>
+        <p-dropdown
+          id="ownerId"
+          formControlName="ownerId"
+          [options]="ownerOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="請選擇專案負責人"
+          styleClass="w-full p-inputtext-sm"
+          appendTo="body"
+        >
+        </p-dropdown>
+        <p-message
+          severity="error"
+          text="必須指定一位專案負責人"
+          *ngIf="isFieldInvalid('ownerId')"
           styleClass="w-full mt-1"
         ></p-message>
       </div>

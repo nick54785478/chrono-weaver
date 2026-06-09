@@ -23,7 +23,7 @@ public sealed interface ProjectCommand {
 	 * 
 	 * @param replyTo Pekko 專用的非同步回應通道
 	 */
-	record CreateProject(String tenantId, String projectId, String projectCode, String name,
+	record CreateProject(String tenantId, String projectId, String projectCode, String name, String ownerId,
 			ActorRef<ProjectResponse> replyTo) implements ProjectCommand {
 	}
 

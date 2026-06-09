@@ -86,7 +86,8 @@ public class ProjectProjectionHandler extends Handler<EventEnvelope<ProjectEvent
 		switch (event) {
 		case ProjectCreated created -> {
 			log.info("🪞 [Projection] 建立專案視圖: [{}]", created.projectId());
-			ProjectView entity = new ProjectView(created.projectId(), created.tenantId(), created.name());
+			ProjectView entity = new ProjectView(created.projectId(), created.tenantId(), created.name(),
+					created.ownerId());
 			projectRepository.save(entity);
 		}
 

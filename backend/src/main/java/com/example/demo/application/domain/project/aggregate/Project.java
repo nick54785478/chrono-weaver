@@ -23,10 +23,6 @@ import com.example.demo.application.domain.project.event.ProjectEvent.TaskSchedu
 import com.example.demo.application.domain.project.event.ProjectEvent.TaskTypeUpdated;
 import com.example.demo.application.shared.exception.DomainException;
 
-// ==========================================
-// 專案聚合根 (Aggregate Root)
-// ==========================================
-
 /**
  * 專案領域聚合根 (Pure Domain Aggregate Root)
  *
@@ -35,9 +31,7 @@ import com.example.demo.application.shared.exception.DomainException;
  * <ul>
  * <li><b>純粹性 (Purity)：</b> 內部絕對沒有任何 Pekko/Akka/Spring 的框架依賴，也沒有外部 Command 介面。</li>
  * <li><b>無副作用 (Side-effect free)：</b> 業務方法只負責「校驗規則」並「產出事件 (Yield Events)」，絕對不修改自身狀態。</li>
- * <li><b>不可變性 (Immutability)：</b> 實體狀態的演進完全仰賴 {@code
- * apply
- * } 方法產生全新的物件副本，完美貼合 Event Sourcing 鐵則。</li>
+ * <li><b>不可變性 (Immutability)：</b> 實體狀態的演進完全仰賴 apply 方法產生全新的物件副本，完美貼合 Event Sourcing 鐵則。</li>
  * </ul>
  * </pre>
  *
@@ -48,8 +42,8 @@ import com.example.demo.application.shared.exception.DomainException;
  * @param taskSequence 任務流水號狀態 (無鎖取號核心)
  * @param tasks        專案轄下之任務清單 (Entity 集合)
  */
-public record Project(String tenantId, String projectId, String projectCode, String projectName, int taskSequence,
-		Map<String, Task> tasks) {
+public record Project(String tenantId, String projectId, String projectCode, String projectName, String ownerId,
+		int taskSequence, Map<String, Task> tasks) {
 
 	/**
 	 * 建立聚合根的初始空狀態 (Zero State)。
@@ -61,7 +55,7 @@ public record Project(String tenantId, String projectId, String projectCode, Str
 	 */
 	public static Project empty() {
 		// 初始狀態下，流水號從 0 開始
-		return new Project(null, null, null, null, 0, new HashMap<>());
+		return new Project(null, null, null, null, null, 0, new HashMap<>());
 	}
 
 	// ==========================================
@@ -75,18 +69,19 @@ public record Project(String tenantId, String projectId, String projectCode, Str
 	 * @param projectId   系統生成的專案唯一識別碼
 	 * @param projectCode 專案代號 (用於任務取號)
 	 * @param projectName 專案名稱
+	 * @param ownerId     Project Owner ID
 	 * @return 包含 {@link ProjectCreated} 事件的列表
 	 * @throws DomainException 若專案名稱或代號為空時拋出
 	 */
 	public static List<ProjectEvent> initialize(String tenantId, String projectId, String projectCode,
-			String projectName) {
+			String projectName, String ownerId) {
 		if (projectName == null || projectName.trim().isEmpty()) {
 			throw new DomainException("專案名稱不能為空");
 		}
 		if (projectCode == null || projectCode.trim().isEmpty()) {
 			throw new DomainException("專案代號不能為空");
 		}
-		return List.of(new ProjectCreated(tenantId, projectId, projectCode, projectName));
+		return List.of(new ProjectCreated(tenantId, projectId, projectCode, projectName, ownerId));
 	}
 
 	// ==========================================
@@ -254,7 +249,7 @@ public record Project(String tenantId, String projectId, String projectCode, Str
 
 		case ProjectCreated e ->
 			// 【創世事件】：專案建立時，賦予基本資料，流水號歸 0，準備一個乾淨的任務 Map
-			new Project(e.tenantId(), e.projectId(), e.projectCode(), e.name(), 0, new HashMap<>());
+			new Project(e.tenantId(), e.projectId(), e.projectCode(), e.name(), e.ownerId(), 0, new HashMap<>());
 
 		case TaskAdded e -> {
 			// 【新增任務】：建立一個全空的任務實體。
@@ -346,7 +341,8 @@ public record Project(String tenantId, String projectId, String projectCode, Str
 		Map<String, Task> newTasks = new HashMap<>(this.tasks);
 		newTasks.put(task.taskId(), task);
 		// 🌟 拷貝時帶上最新的 taskSequence
-		return new Project(this.tenantId, this.projectId, this.projectCode, this.projectName, newSequence, newTasks);
+		return new Project(this.tenantId, this.projectId, this.projectCode, this.projectName, this.ownerId, newSequence,
+				newTasks);
 	}
 
 	/**

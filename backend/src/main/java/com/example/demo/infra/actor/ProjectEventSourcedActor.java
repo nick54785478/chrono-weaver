@@ -85,17 +85,17 @@ public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectComman
 
 	// --- 以下為各個 Command 的拆解與持久化實作 ---
 
-	private Effect<ProjectEvent, Project> onCreateProject(Project state, CreateProject cmd) {
+	private Effect<ProjectEvent, Project> onCreateProject(Project state, CreateProject command) {
 		try {
-			// 💡 呼叫純領域聚合根的靜態工廠方法進行無中生有的初始化
-			List<ProjectEvent> events = Project.initialize(cmd.tenantId(), cmd.projectId(), cmd.projectCode(),
-					cmd.name());
+			// 呼叫純領域聚合根的靜態工廠方法進行無中生有的初始化
+			List<ProjectEvent> events = Project.initialize(command.tenantId(), command.projectId(),
+					command.projectCode(), command.name(), command.ownerId());
 
 			// 持久化大腦產出的 Event，並透過 replyTo 回覆成功
-			return Effect().persist(events).thenReply(cmd.replyTo(), s -> new ProjectResponse(true, "專案建立成功"));
+			return Effect().persist(events).thenReply(command.replyTo(), s -> new ProjectResponse(true, "專案建立成功"));
 		} catch (DomainException e) {
 			// 攔截大腦拋出的業務防禦異常，並回覆失敗原因
-			return Effect().reply(cmd.replyTo(), new ProjectResponse(false, e.getMessage()));
+			return Effect().reply(command.replyTo(), new ProjectResponse(false, e.getMessage()));
 		}
 	}
 
