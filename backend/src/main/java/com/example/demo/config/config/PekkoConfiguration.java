@@ -23,7 +23,7 @@ import com.example.demo.infra.actor.ProjectEventSourcedActor;
 import com.example.demo.infra.actor.ProjectTeamEventSourcedActor;
 
 @Configuration
-public class PekkoConfig {
+public class PekkoConfiguration {
 
 	// 1. 啟動 Pekko Actor 系統
 	@Bean(destroyMethod = "terminate")

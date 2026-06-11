@@ -24,7 +24,7 @@ import com.example.demo.infra.actor.ProjectEventSourcedActor;
 import com.example.demo.infra.actor.ProjectTeamEventSourcedActor;
 
 @Configuration
-public class ProjectionConfig {
+public class ProjectionConfiguration {
 
 	@Bean
     public CommandLineRunner startProjections(
