@@ -21,6 +21,7 @@ import { SystemMessageService } from '../../../../shared/services/system-message
 import { CommandResult } from '../../../../shared/models/command-result.model';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DropdownModule } from 'primeng/dropdown';
+import { LoadingMaskService } from '../../../../shared/services/loading-mask.service';
 
 @Component({
   selector: 'app-create-project',
@@ -54,7 +55,7 @@ export class CreateProjectComponent implements OnInit {
     private projectService: ProjectService,
     private router: Router,
     private storageService: StorageService,
-    // 🌟 2. 注入 SystemMessageService
+    private loadingMaskService: LoadingMaskService,
     private systemMessageService: SystemMessageService,
   ) {}
 
@@ -82,13 +83,13 @@ export class CreateProjectComponent implements OnInit {
 
     this.loading = true;
 
-    // 🌟 3. 解構賦值時，把 ownerId 一併拿出來
+    // 3. 解構賦值時，把 ownerId 一併拿出來
     const { projectCode, projectName, ownerId } = this.projectForm.value;
 
     const currentTenant =
       this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || 'WPG';
 
-    // 🌟 4. 記得去 ProjectService 將 createProject 的參數補上 ownerId！
+    // 4. 記得去 ProjectService 將 createProject 的參數補上 ownerId！
     this.projectService
       .createProject(projectCode, projectName, currentTenant, ownerId)
       .subscribe({
@@ -147,7 +148,7 @@ export class CreateProjectComponent implements OnInit {
       });
   }
   /**
-   * 🌟 獨立抽出的成功導頁邏輯，讓 next 和 error(200 OK 誤判) 都能共用
+   * 獨立抽出的成功導頁邏輯，讓 next 和 error(200 OK 誤判) 都能共用
    */
   private handleSuccessRedirect(
     projectCode: string,

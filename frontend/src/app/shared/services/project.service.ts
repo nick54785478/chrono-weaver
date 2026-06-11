@@ -4,6 +4,7 @@ import { environment } from '../../../environments/environment';
 import { CommandResult } from '../models/command-result.model';
 import { map } from 'rxjs/internal/operators/map';
 import { ProjectCreatedResource } from '../models/project-created-response';
+import { Observable } from 'rxjs/internal/Observable';
 
 @Injectable({
   providedIn: 'root',
@@ -37,6 +38,20 @@ export class ProjectService {
     return this.http.post<ProjectCreatedResource>(this.baseUrl, body, {
       headers,
     });
+  }
+
+  /**
+   * 實作：從 CQRS Read Model 獲取指定專案的詳細資訊 (用於首頁總覽)
+   * @param projectId 目標專案唯一識別碼
+   * @param tenantId 租戶識別碼
+   */
+  public getProjectById(projectId: string, tenantId: string): Observable<any> {
+    const headers = new HttpHeaders().set('X-Tenant-ID', tenantId);
+    const url = `${this.baseUrl}/${projectId}`;
+
+    return this.http
+      .get<any>(url, { headers })
+      .pipe(map((response) => response.data || response.project || response));
   }
 
   /**

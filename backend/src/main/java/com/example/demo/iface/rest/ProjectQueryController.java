@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.application.service.ProjectQueryService;
@@ -31,9 +32,10 @@ public class ProjectQueryController {
 	 * 查詢所有專案列表
 	 */
 	@GetMapping
-	public ResponseEntity<ProjectGottenResource> getAllProjects(@RequestHeader("X-Tenant-ID") String tenantId) {
-
-		List<ProjectView> projects = projectQueryService.getAllProjects(tenantId);
+	public ResponseEntity<ProjectGottenResource> getAllProjects(@RequestHeader("X-Tenant-ID") String tenantId,
+			@RequestParam String userId) {
+		// 實際生產環境建議由登入 Token/SecurityContext 解析 userId
+		List<ProjectView> projects = projectQueryService.getProjectsByMember(tenantId, userId);
 		return ResponseEntity.ok(new ProjectGottenResource("200", "Success", projects));
 	}
 

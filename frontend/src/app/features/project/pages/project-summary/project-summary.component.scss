@@ -1,0 +1,26 @@
+// project-summary.component.scss
+:host {
+  display: block;
+  background-color: var(--surface-ground);
+  min-height: calc(100vh - 70px);
+}
+
+::ng-deep {
+  // 微調 ProgressBar 圓角讓它看起來更現代
+  .p-progressbar {
+    border-radius: 8px;
+    .p-progressbar-value {
+      border-radius: 8px;
+    }
+  }
+
+  // 讓卡片有點呼吸感
+  .p-card {
+    transition:
+      transform 0.2s,
+      box-shadow 0.2s;
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    }
+  }
+}

@@ -45,15 +45,17 @@ public class ProjectQueryService {
 	// ==========================================
 
 	/**
-	 * 查詢指定租戶下的所有專案總覽 (列表)。
+	 * 查詢指定租戶下，特定使用者所參與 (身為 TeamMember) 的所有專案清單。
 	 *
-	 * @param tenantId 租戶識別碼 (目前登入使用者的所屬組織)
-	 * @return 該租戶轄下的所有專案視圖清單；若無則回傳空列表
+	 * @param tenantId 租戶識別碼 (安全邊界防護)
+	 * @param userId   目標使用者的員工編號/識別碼
+	 * @return 該使用者參與的所有專案視圖清單；若無則回傳空列表
 	 */
-	public List<ProjectView> getAllProjects(String tenantId) {
-		log.debug("Fetching all projects for tenant: {}", tenantId);
-		// 單純的條件過濾，依賴資料庫索引即可高速回傳
-		return projectRepository.findByTenantId(tenantId);
+	public List<ProjectView> getProjectsByMember(String tenantId, String userId) {
+		log.debug("Fetching projects for tenant: {} where user: {} is a team member", tenantId, userId);
+		
+		// 呼叫帶有子查詢的高效 Repository 方法
+		return projectRepository.findByTenantIdAndMemberUserId(tenantId, userId);
 	}
 
 	/**
