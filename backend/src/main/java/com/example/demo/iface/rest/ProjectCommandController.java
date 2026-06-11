@@ -28,11 +28,11 @@ import lombok.RequiredArgsConstructor;
 /**
  * 專案寫入端控制器 (CQRS Command Controller)
  *
- * <p>
- * 💡 <b>架構定位：</b> 本控制器專司處理所有會改變系統狀態的寫入請求 (Commands)。 嚴格遵守 RESTful API
- * 設計規範，將「專案」與「任務」視為階層式資源 (Hierarchical Resources)。 所有請求皆強制要求提供
- * {@code X-Tenant-ID} 標頭，以落實多租戶邊界防護。
- * </p>
+ * <pre>
+ * <b>架構定位：</b> 本控制器專司處理所有會改變系統狀態的寫入請求 (Commands)。 
+ * 嚴格遵守 RESTful API 設計規範，將「專案」與「任務」視為階層式資源 (Hierarchical Resources)。 
+ * 所有請求皆強制要求提供  X-Tenant-ID 標頭，以落實多租戶邊界防護。
+ * </pre>
  */
 @RestController
 @RequestMapping("/api/projects")

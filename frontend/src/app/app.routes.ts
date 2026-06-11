@@ -4,6 +4,7 @@ import { CoEditorComponent } from './features/co-editor/pages/co-editor/co-edito
 import { GanttComponent } from './features/gantt/pages/gantt/gantt.component';
 import { CreateProjectComponent } from './features/project/pages/create-project/create-project.component';
 import { ProjectProcessingComponent } from './features/project/pages/project-processing/project-processing.component';
+import { TeamManagementComponent } from './features/team/pages/team-management/team-management.component';
 
 export const routes: Routes = [
   {
@@ -20,6 +21,7 @@ export const routes: Routes = [
       { path: 'project-processing/:id', component: ProjectProcessingComponent },
       { path: 'create-project', component: CreateProjectComponent },
       { path: 'gantt', component: GanttComponent },
+      { path: 'teams', component: TeamManagementComponent },
       { path: '', redirectTo: 'create-project', pathMatch: 'full' },
     ],
   },

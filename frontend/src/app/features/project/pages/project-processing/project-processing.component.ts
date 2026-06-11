@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ProjectService } from '../../../../shared/service/project.service';
+import { ProjectService } from '../../../../shared/services/project.service';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { timer, forkJoin } from 'rxjs'; // 🌟 引入 RxJS 工具
 import { StorageService } from '../../../../core/services/storage.service';

@@ -18,4 +18,6 @@ public interface TeamMemberRepository extends JpaRepository<TeamMemberView, Stri
 	List<TeamMemberView> findAllByProjectId(String projectId);
 
 	void deleteByProjectIdAndUserId(String projectId, String userId);
+	
+	List<TeamMemberView> findByTenantIdAndProjectIdOrderByJoinedAtAsc(String tenantId, String projectId);
 }

@@ -10,4 +10,5 @@ export enum SystemStorageKey {
   REDIRECT_URL = 'redirectUrl',
   QUERY_PARAMS = 'queryParams',
   PERMISSIONS = 'permissions',
+  LAST_PROJECT_ID = 'last_project_id',
 }

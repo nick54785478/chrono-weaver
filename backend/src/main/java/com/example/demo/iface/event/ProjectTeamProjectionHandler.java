@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.example.demo.application.domain.team.event.ProjectTeamEvent;
-import com.example.demo.infra.persistence.TeamMemberRepository;
+import com.example.demo.application.port.TeamMemberViewUpdaterPort;
 import com.example.demo.infra.projection.TeamMemberView;
 
 /**
@@ -21,24 +21,27 @@ import com.example.demo.infra.projection.TeamMemberView;
  * 收到事件後，將非同步地將最新的領域狀態投影（Project）至關聯式資料庫中的平坦唯讀視圖 {@link TeamMemberView}。
  * </p>
  * <p>
- * <b>設計特點：</b> 採用「意圖導向更新」，拒絕無腦 Setter，確保 Read Model 變更邏輯與寫入端的領域事件語意高度一致。
+ * <b>設計特點：</b> 採用 Port-Adapter 架構，將資料庫交易 (Transaction) 與底層持久化邏輯 委託給
+ * {@link TeamMemberViewUpdaterPort}，確保 Handler 保持為純粹的事件調度員。
  * </p>
  */
 @Component
 public class ProjectTeamProjectionHandler extends Handler<EventEnvelope<ProjectTeamEvent>> {
 
 	private static final Logger log = LoggerFactory.getLogger(ProjectTeamProjectionHandler.class);
-	private final TeamMemberRepository repository; // 💡 注意：對應的 Repository 內泛型也需同步改為 TeamMemberView
 
-	public ProjectTeamProjectionHandler(TeamMemberRepository repository) {
-		this.repository = repository;
+	// 🌟 注入 Port，完美達成依賴反轉，Handler 不再與 JPA Repository 綁死
+	private final TeamMemberViewUpdaterPort viewUpdater;
+
+	public ProjectTeamProjectionHandler(TeamMemberViewUpdaterPort viewUpdater) {
+		this.viewUpdater = viewUpdater;
 	}
 
 	/**
 	 * Pekko Projection 的核心串流處理入口
 	 *
 	 * @param envelope 封裝了領域事件與後設資料 (Metadata) 的信封
-	 * @return CompletionStage 供 Pekko 框架進行非同步的基底 Offset 推进確認
+	 * @return CompletionStage 供 Pekko 框架進行非同步的基底 Offset 推進確認
 	 */
 	@Override
 	public CompletionStage<Done> process(EventEnvelope<ProjectTeamEvent> envelope) {
@@ -65,34 +68,18 @@ public class ProjectTeamProjectionHandler extends Handler<EventEnvelope<ProjectT
 			}
 
 			case ProjectTeamEvent.MemberAdded e -> {
-				// 【成員加入】：等冪性保護 (Idempotency Guard)。
-				// 由於分散式串流可能保證「至少發送一次 (At-least-once)」，在此透過複合鍵雙重檢查，防範重複插入。
-				repository.findByProjectIdAndUserId(projectId, e.userId()).ifPresentOrElse(
-						existing -> log.debug("[Projection] 成員 {} 已存在於專案 {}，忽略此重複事件", e.userId(), projectId), () -> {
-							// 建立平坦的視圖模型實例
-							TeamMemberView newView = new TeamMemberView(tenantId, projectId, e.userId(), e.role(),
-									e.joinedAt());
-							repository.save(newView);
-							log.info("[Projection] 成功投影新成員至唯讀資料表: {} -> {}", projectId, e.userId());
-						});
+				// 🌟 將狀態更新職責委託給 Adapter，享有完整的 @Transactional 保護
+				viewUpdater.addMember(tenantId, projectId, e);
 			}
 
 			case ProjectTeamEvent.MemberRoleChanged e -> {
-				// 【角色變更】：核心修復節點。
-				repository.findByProjectIdAndUserId(projectId, e.userId()).ifPresent(memberView -> {
-					// 🌟 升級：捨棄無腦的 setRole()，改為調用具備防護語意的意圖行為方法
-					memberView.applyRoleChange(e.newRole());
-
-					// 觸發 JPA 的 Dirty Checking 或明確存檔，更新資料庫視圖
-					repository.save(memberView);
-					log.info("[Projection] 成功反映角色變更至唯讀視圖: 使用者 [{}] 變更為角色 [{}]", e.userId(), e.newRole());
-				});
+				// 委託更新角色
+				viewUpdater.changeMemberRole(projectId, e);
 			}
 
 			case ProjectTeamEvent.MemberRemoved e -> {
-				// 【成員移除】：全量物理刪除或改為軟刪除（視業務需求而定，此處採物理刪除）。
-				repository.deleteByProjectIdAndUserId(projectId, e.userId());
-				log.info("[Projection] 成功同步移除成員紀錄: 專案 [{}], 使用者 [{}]", projectId, e.userId());
+				// 委託移除成員
+				viewUpdater.removeMember(projectId, e);
 			}
 			}
 		} catch (Exception ex) {

@@ -1,0 +1,134 @@
+<div class="p-4">
+  <p-card styleClass="shadow-2">
+    <div class="flex justify-content-between align-items-center mb-4">
+      <h2 class="text-xl font-bold m-0">
+        <i class="pi pi-users mr-2"></i>團隊成員管理
+      </h2>
+      <button
+        pButton
+        icon="pi pi-user-plus"
+        label="加入成員"
+        (click)="openAddDialog()"
+        class="p-button-sm"
+      ></button>
+    </div>
+
+    <p-table
+      [value]="members"
+      [loading]="loading"
+      responsiveLayout="scroll"
+      styleClass="p-datatable-sm p-datatable-striped"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>使用者 ID</th>
+          <th>專案角色</th>
+          <th>加入時間</th>
+          <th style="width: 100px; text-align: center">操作</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-member>
+        <tr>
+          <td class="font-semibold">{{ member.userId }}</td>
+
+          <td>
+            <p-select
+              [options]="roleOptions"
+              [ngModel]="member.role"
+              (ngModelChange)="onRoleChange(member, $event)"
+              optionLabel="label"
+              optionValue="value"
+              appendTo="body"
+              styleClass="w-full md:w-15rem p-inputtext-sm"
+            >
+            </p-select>
+          </td>
+
+          <td>{{ member.joinedAt | date: "yyyy/MM/dd HH:mm" }}</td>
+
+          <td class="text-center">
+            <button
+              pButton
+              pRipple
+              icon="pi pi-trash"
+              class="p-button-rounded p-button-danger p-button-text p-button-sm"
+              pTooltip="移除成員"
+              (click)="removeMember(member)"
+            ></button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4" class="text-center p-4 text-color-secondary">
+            目前團隊中沒有成員。
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-card>
+</div>
+
+<p-dialog
+  header="加入新成員"
+  [(visible)]="showAddDialog"
+  [modal]="true"
+  [style]="{ width: '400px' }"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <form
+    [formGroup]="addForm"
+    (ngSubmit)="onSubmitAdd()"
+    class="flex flex-column gap-4 pt-2"
+  >
+    <div class="flex flex-column gap-2">
+      <label for="userId" class="font-semibold text-sm"
+        >使用者 ID <span class="text-red-500">*</span></label
+      >
+      <input
+        pInputText
+        id="userId"
+        formControlName="userId"
+        placeholder="請輸入員工編號"
+        class="p-inputtext-sm w-full"
+        autofocus
+      />
+    </div>
+
+    <div class="flex flex-column gap-2">
+      <label for="role" class="font-semibold text-sm"
+        >指派角色 <span class="text-red-500">*</span></label
+      >
+      <p-select
+        id="role"
+        formControlName="role"
+        [options]="roleOptions"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+        styleClass="w-full p-inputtext-sm"
+      ></p-select>
+    </div>
+
+    <div class="flex justify-content-end gap-2 mt-2">
+      <button
+        pButton
+        type="button"
+        label="取消"
+        class="p-button-text p-button-sm p-button-secondary"
+        (click)="showAddDialog = false"
+        [disabled]="isSubmitting"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        label="確認加入"
+        icon="pi pi-check"
+        class="p-button-sm"
+        [loading]="isSubmitting"
+        [disabled]="addForm.invalid"
+      ></button>
+    </div>
+  </form>
+</p-dialog>

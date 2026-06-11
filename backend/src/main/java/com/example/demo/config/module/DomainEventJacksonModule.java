@@ -20,7 +20,7 @@ public class DomainEventJacksonModule extends SimpleModule {
 		// 核心魔法：告訴 Jackson，當你遇到 ProjectTeamEvent 時，請去讀 ProjectTeamEventMixIn 身上的註解！
 		setMixInAnnotation(ProjectTeamEvent.class, ProjectTeamEventMixIn.class);
 
-		// 💡 未來如果有其他聚合的 Event (例如 ProjectEvent)，也可以統一寫在這裡
+		// 未來如果有其他聚合的 Event (例如 ProjectEvent)，也可以統一寫在這裡
 		// setMixInAnnotation(ProjectEvent.class, ProjectEventMixIn.class);
 	}
 }

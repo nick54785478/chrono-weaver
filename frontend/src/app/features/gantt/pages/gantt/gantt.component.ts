@@ -14,7 +14,7 @@ import Gantt from 'frappe-gantt';
 import { ButtonModule } from 'primeng/button';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { FormsModule } from '@angular/forms';
-import { ProjectService } from '../../../../shared/service/project.service';
+import { ProjectService } from '../../../../shared/services/project.service';
 import { StorageService } from '../../../../core/services/storage.service';
 import { SystemStorageKey } from '../../../../core/enums/system-storage.enum';
 import { Task } from '../../../co-editor/models/task.model';
