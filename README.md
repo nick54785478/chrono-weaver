@@ -14,16 +14,27 @@ Chrono Weaver 是一款專為中大型團隊設計的敏捷專案管理與 WBS (
 
 * **Write Side (命令端 - 絕對的真實)：**
 
-  每個專案 (Project) 與團隊 (ProjectTeam) 都是一個獨立的 Event Sourced Actor (聚合根)。
-  透過 **Actor Mailbox** 保證單一實體的指令是循序執行的，**完全免除了關聯式資料庫的悲觀鎖 (Pessimistic Lock) 或樂觀鎖 (Optimistic Lock) 帶來的效能瓶頸**。
-  所有的狀態變更不直接 Update 資料庫，而是化為不可變的「領域事件 (Domain Events)」附加至 Event Journal (如 Cassandra) 中，提供完美的稽核軌跡 (Audit Trail)。
+每個專案 (Project) 與團隊 (ProjectTeam) 都是一個獨立的 Event Sourced Actor (聚合根)。
+透過 **Actor Mailbox** 保證單一實體的指令是循序執行的，**完全免除了關聯式資料庫的悲觀鎖 (Pessimistic Lock) 或樂觀鎖 (Optimistic Lock) 帶來的效能瓶頸**。
+所有的狀態變更不直接 Update 資料庫，而是化為不可變的「領域事件 (Domain Events)」附加至 Event Journal (如 Cassandra) 中，提供完美的稽核軌跡 (Audit Trail)。
+>* Event Sourced Aggregates： 每個專案 (Project) 與團隊 (ProjectTeam) 都是獨立的 Actor。狀態變更不直接 UPDATE 資料庫，而是化為不可變的「領域事件 (Domain Events)」附加至 Cassandra Event Journal 中。
+>* 無鎖併發防禦 (Lock-free Concurrency)： 透過 Actor Mailbox 保證單一實體的指令循序執行。在高併發下，衝突在進入 Actor 前就被排解為先後順序，完全免除資料庫悲觀鎖導致的效能瓶頸。
 
 * **Read Side (查詢端 - 最終一致性)：**
 
-  透過 Pekko Projection 非同步訂閱 Event Journal，收到事件後，將狀態投影 (Project) 到關聯式資料庫 (PostgreSQL) 中高度平坦化的視圖表 (ProjectView, TaskView)。
-  前端的列表與甘特圖查詢直接對接這些平坦化視圖，達成極致的查詢吞吐量 (High Throughput)，徹底消滅 ORM N+1 查詢地雷。
+透過 Pekko Projection 非同步訂閱 Event Journal，收到事件後，將狀態投影 (Project) 到關聯式資料庫 (PostgreSQL) 中高度平坦化的視圖表 (ProjectView, TaskView)。
+前端的列表與甘特圖查詢直接對接這些平坦化視圖，達成極致的查詢吞吐量 (High Throughput)，徹底消滅 ORM N+1 查詢地雷。
+  
+>* 平坦化視圖： 透過 Pekko Projection 非同步訂閱事件，將狀態投影至 PostgreSQL 的視圖表。前端查詢直接對接平坦化視圖，徹底消滅 ORM N+1 查詢地雷，達成極致的查詢吞吐量。
 
-### 2. 六角形架構 (Ports and Adapters)
+### 2. 分散式環境的一致性保證 (Pekko Cluster Sharding)
+
+為了支援橫向擴展 (Horizontal Scaling)，系統導入了 Cluster Sharding 技術：
+>* 位置透明性 (Location Transparency)： 即便系統部署於多個 Pod，特定 Entity ID 的 Actor 在整個叢集中永遠只會存在唯一一個活躍實例。
+>* 精準路由： 無論用戶請求打在哪個 Pod，叢集會自動將指令轉發至代管該實體的節點，保證分散式環境下「單一事實來源」的原則，確保強一致性。
+
+
+### 3. 六角形架構與彈性投影 (Resilient Projections)
 
 為了保護核心業務與投影邏輯不被底層基礎設施污染，系統在邊界處理上導入了 Port-Adapter 模式：
 
@@ -31,7 +42,11 @@ Chrono Weaver 是一款專為中大型團隊設計的敏捷專案管理與 WBS (
 
 * 依賴反轉 (DIP)： Handler 透過 ProjectViewUpdaterPort (Secondary Port) 呼叫實作層。實際的資料庫 @Transactional 邊界被嚴格限制在 ProjectViewUpdaterAdapter 中。
 
-* 優勢： 這種設計讓事件分發路由 (Pekko) 與持久化交易 (Spring JPA) 完美解耦。若未來將關聯式資料庫替換為 MongoDB 或 Elasticsearch，核心 Handler 程式碼完全無須修改。
+* atLeastOnce 語意： 投影管線採用「至少一次」處理語意。配合分散式 Offset 追蹤，即使某個負責投影的 Pod 崩潰，重啟後精靈會自動從舊位移處 Replay 事件，確保讀取端資料絕對不遺失。
+
+* 並行精靈 (Projection Daemons)： 系統切分多條獨立水管，讓「檢視表更新」與「分散式 Saga 交易」平行處理，互不阻塞。
+
+**優勢**： 這種設計讓事件分發路由 (Pekko) 與持久化交易 (Spring JPA) 完美解耦。若未來將關聯式資料庫替換為 MongoDB 或 Elasticsearch，核心 Handler 程式碼完全無須修改。
 
 ### 3. 現代化 Java 領域建模 (Modern Java DDD)
 
