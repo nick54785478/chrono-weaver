@@ -1,0 +1,41 @@
+/* project-list.component.scss */
+
+::ng-deep .jira-table {
+  /* 隱藏外框，讓卡片感更強 */
+  .p-datatable-wrapper {
+    border-radius: 0 0 12px 12px;
+  }
+
+  /* 表頭樣式微調 */
+  .p-datatable-thead > tr > th {
+    background-color: transparent;
+    color: var(--text-color-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-top: none;
+    padding-top: 1.5rem;
+    padding-bottom: 1rem;
+  }
+
+  /* 表身列 Hover 效果 */
+  .p-datatable-tbody > tr {
+    transition:
+      background-color 0.2s,
+      box-shadow 0.2s;
+
+    > td {
+      border-bottom: 1px solid var(--surface-border);
+      padding: 1rem;
+    }
+
+    /* 模擬 Jira 滑鼠移上去的淡灰色背景與游標 */
+    &:hover {
+      background-color: var(--surface-hover) !important;
+    }
+  }
+
+  /* 移除最後一列的底線 */
+  .p-datatable-tbody > tr:last-child > td {
+    border-bottom: none;
+  }
+}

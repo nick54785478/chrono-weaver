@@ -55,7 +55,7 @@ export class ProjectProcessingComponent implements OnInit {
     forkJoin([fetchTasks$, minTimeTimer$]).subscribe({
       next: () => {
         // 投影已就緒，且動畫播滿設定時間，完美滑入編輯器
-        this.router.navigate(['/co-editor', projectId]);
+        this.router.navigate(['/project-summary', projectId]);
       },
       error: (err) => {
         // 如果是第一次請求失敗 (Read Model 還沒好)，就進入重試邏輯
@@ -68,7 +68,7 @@ export class ProjectProcessingComponent implements OnInit {
         } else {
           // 超過重試次數，真的失敗了，回到建立頁面
           console.error('[CQRS] 投影重試失敗，Read Model 未能如期就緒:', err);
-          this.router.navigate(['/create-project']);
+          this.router.navigate(['/project-list']);
         }
       },
     });

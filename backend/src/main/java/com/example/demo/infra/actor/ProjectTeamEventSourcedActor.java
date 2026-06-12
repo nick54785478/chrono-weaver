@@ -1,6 +1,5 @@
 package com.example.demo.infra.actor;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -19,21 +18,27 @@ import com.example.demo.application.shared.exception.DomainException;
 import com.example.demo.application.shared.response.ProjectResponse;
 
 /**
- * 基礎設施層：ProjectTeam 的 Event Sourcing 宿主 Actor
+ * 基礎設施層：ProjectTeam 的 Event Sourcing 宿主 (Host) Actor
  * <p>
- * 專責處理團隊成員併發操作的持久化，與 Project 核心的 Actor 完全隔離， 確保「修改專案名稱」與「增減團隊成員」不會發生鎖定衝突。
+ * <b>架構邊界：</b> 本元件專責處理「團隊成員」併發操作的持久化。將 Team 與 Project 拆分為兩個獨立的 Actor (聚合根)，
+ * 是為了縮小鎖定範圍 (Locking Scope)，確保「修改專案名稱」與「增減團隊成員」這兩種不同頻率的操作
+ * 能完全平行處理，不會發生鎖定衝突與效能瓶頸。
  * </p>
  */
 public class ProjectTeamEventSourcedActor
 		extends EventSourcedBehavior<ProjectTeamCommand, ProjectTeamEvent, ProjectTeam> {
 
 	// ==========================================
-	// 1. 基礎設定與生命週期
+	// 1. 基礎設定與叢集生命週期 (Cluster Sharding)
 	// ==========================================
-	public static final String TAG = "ProjectTeamEvent";
-	
 
-	// 🌟 核心設計：使用獨立的 EntityTypeKey，讓叢集知道這是 Team，不是 Project
+	/** 定義事件日誌的標籤，供讀取端 (Read Side / Projection) 訂閱使用 */
+	public static final String TAG = "ProjectTeamEvent";
+
+	/**
+	 * 核心設計：獨立的 EntityTypeKey 告訴 Pekko Cluster 這是一個「團隊實體」，讓叢集能在不同的 Node 上正確路由
+	 * Command， 並且與 Project 實體互不干擾。
+	 */
 	public static final EntityTypeKey<ProjectTeamCommand> ENTITY_TYPE_KEY = EntityTypeKey
 			.create(ProjectTeamCommand.class, "ProjectTeam");
 
@@ -42,24 +47,30 @@ public class ProjectTeamEventSourcedActor
 	}
 
 	/**
-	 * 建立 Actor 行為。 💡 注意：這裡的 projectId 傳入的是隸屬專案的 ID，確保 1:1 的對應關係。
+	 * 建立 Actor 行為的工廠方法。
+	 * 
+	 * @param tenantId  多租戶邊界識別碼
+	 * @param projectId 隸屬專案的 ID (維持 1:1 的關聯對應)
+	 * @return 定義好的 Actor 行為
 	 */
 	public static Behavior<ProjectTeamCommand> create(String tenantId, String projectId) {
+		// 組合 PersistenceId: "ProjectTeam|tenantId_projectId"
 		return new ProjectTeamEventSourcedActor(PersistenceId.of(ENTITY_TYPE_KEY.name(), tenantId + "_" + projectId));
 	}
 
 	@Override
-    public Set<String> tagsFor(ProjectTeamEvent event) {
-        return Set.of(TAG);
-    }
+	public Set<String> tagsFor(ProjectTeamEvent event) {
+		return Set.of(TAG); // 替所有產出的事件貼上標籤，寫入 Cassandra 時供 Projection 撈取
+	}
 
 	@Override
 	public ProjectTeam emptyState() {
-		return ProjectTeam.empty(); // 從 Domain 取得空狀態
+		// 從 Domain (大腦) 取得最初始、尚未發生任何事件的空記憶狀態
+		return ProjectTeam.empty();
 	}
 
 	// ==========================================
-	// 2. Command 路由器
+	// 2. Command 路由器 (處理寫入意圖)
 	// ==========================================
 	@Override
 	public CommandHandler<ProjectTeamCommand, ProjectTeamEvent, ProjectTeam> commandHandler() {
@@ -70,19 +81,27 @@ public class ProjectTeamEventSourcedActor
 				.onCommand(ProjectTeamCommand.RemoveMember.class, this::onRemoveMember).build();
 	}
 
-	// --- Command 拆解實作 ---
+	// --- Command 拆解與持久化實作 ---
 
+	/**
+	 * 處理：初始化團隊
+	 */
 	private Effect<ProjectTeamEvent, ProjectTeam> onInitializeTeam(ProjectTeam state,
 			ProjectTeamCommand.InitializeTeam cmd) {
 		try {
-			// 防呆：如果團隊已經初始化過了（例如重試機制觸發），直接回覆成功
+			// 💡 等冪性防禦 (Idempotency Guard)：
+			// 分散式系統可能會收到重複的 Command (例如網路重試)，若已初始化過則直接回覆成功，不產生新事件
 			if (state.projectId() != null) {
 				return Effect().reply(cmd.replyTo(), new ProjectResponse(true, "團隊已初始化"));
 			}
 
+			// 1. 呼叫純領域邏輯進行校驗並產生「事實 (Events)」
 			List<ProjectTeamEvent> events = ProjectTeam.initialize(cmd.tenantId(), cmd.projectId());
+
+			// 2. 將事實寫入 Event Journal，寫入成功後再回覆前端
 			return Effect().persist(events).thenReply(cmd.replyTo(), s -> new ProjectResponse(true, "團隊初始化成功"));
 		} catch (DomainException e) {
+			// 攔截業務規則防禦拋出的例外 (例如參數錯誤)，化為失敗回應
 			return Effect().reply(cmd.replyTo(), new ProjectResponse(false, e.getMessage()));
 		}
 	}
@@ -116,12 +135,14 @@ public class ProjectTeamEventSourcedActor
 	}
 
 	// ==========================================
-	// 3. Event 路由器
+	// 3. Event 路由器 (狀態演化)
 	// ==========================================
 	@Override
 	public EventHandler<ProjectTeam, ProjectTeamEvent> eventHandler() {
 		return newEventHandlerBuilder().forAnyState()
-				// 把事件無腦丟給 Domain 的 apply 引擎去推演狀態
+				// 💡 狀態折疊 (State Folding)：
+				// 無論是剛存入資料庫的最新事件，還是節點重啟時從資料庫 Replay 的歷史事件，
+				// 都無腦交給 Domain 的 apply 方法去推進/還原狀態。
 				.onAnyEvent((state, event) -> state.apply(event));
 	}
 }

@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
+import * as Y from 'yjs';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
@@ -19,7 +19,7 @@ import { AvatarModule } from 'primeng/avatar';
 import { AvatarGroupModule } from 'primeng/avatargroup';
 import { GanttSyncService } from '../../../../shared/services/gantt-sync.service';
 import { Task } from '../../models/task.model';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { StorageService } from '../../../../core/services/storage.service';
 import { SystemStorageKey } from '../../../../core/enums/system-storage.enum';
 import { TooltipModule } from 'primeng/tooltip';
@@ -57,37 +57,32 @@ import { fromEvent } from 'rxjs/internal/observable/fromEvent';
   styleUrl: './co-editor.component.scss',
 })
 export class CoEditorComponent implements OnInit, OnDestroy {
-  // 核心狀態變數
-  tasks: Task[] = [];
+  tasks: any[] = [];
   projectId: string = '';
   currentTenantId: string = '';
   firstOffset: number = 0;
-  // 用來記憶 PrimeNG 表格目前的分頁位置 (第一筆資料的 Index)，防止 Yjs 同步時表格跳回第一頁  firstOffset: number = 0;
   activeCollaborators: { name: string; color: string; initials: string }[] = [];
   private saveTimers = new Map<string, any>();
 
-  // 基礎設施與計時器
   @ViewChild('workspace', { static: true }) workspaceRef!: ElementRef;
   remoteCursors: any[] = [];
   private mouseMoveSub: Subscription | undefined;
 
-  // 取得或建立使用者 Session 身分，確保 F5 刷新頁面時不會產生幽靈分身
   currentUser = this.getOrCreateSessionUser();
-
   activeSelections: Map<string, any> = new Map();
   private yjsObserver: (events: any, transaction: any) => void;
   isCreatingTask = false;
 
   constructor(
+    private router: Router,
     private syncService: GanttSyncService,
-    private projectService: ProjectService,
+    private projectService: ProjectService, // 替換為實際型別
     private cdr: ChangeDetectorRef,
     private route: ActivatedRoute,
-    private storageService: StorageService,
-    private systemMessageService: SystemMessageService,
+    private storageService: StorageService, // 替換為實際型別
+    private systemMessageService: SystemMessageService, // 替換為實際型別
     private zone: NgZone,
   ) {
-    // 初始化 Yjs 監聽器
     this.yjsObserver = (events: any, transaction: any) => {
       if (
         transaction.local &&
@@ -96,31 +91,22 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       ) {
         return;
       }
-      console.log(
-        `[Yjs Observer] 允許渲染畫面！觸發來源: ${transaction.origin || '遠端協作者'}`,
-      );
-      this.syncYjsToAngular(); // 將 Yjs 的共享狀態推入 Angular 渲染循環
+      this.syncYjsToAngular();
     };
   }
 
   ngOnInit() {
     this.currentTenantId =
-      this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || 'WPG';
+      this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || '';
 
-    // 啟動滑鼠軌跡監聽 (節流 50ms 防止高頻座標發送塞爆 WebSocket)
     this.mouseMoveSub = fromEvent<MouseEvent>(document, 'mousemove')
       .pipe(throttleTime(50))
       .subscribe((event) => {
-        if (!this.workspaceRef) {
-          return;
-        }
-
-        // 計算滑鼠相對於工作區 (workspace) 的相對座標
+        if (!this.workspaceRef) return;
         const rect = this.workspaceRef.nativeElement.getBoundingClientRect();
         const relativeX = event.clientX - rect.left;
         const relativeY = event.clientY - rect.top;
 
-        // 判斷是否在界內
         if (
           relativeX >= 0 &&
           relativeY >= 0 &&
@@ -132,39 +118,28 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             y: relativeY,
           });
         } else {
-          // 關鍵驅魔：一但滑鼠出界，立刻向所有人廣播「隱藏我的鼠標」
           this.syncService.awareness.setLocalStateField('cursor', null);
         }
       });
 
-    // 當使用者切換瀏覽器分頁 (例如去看 YouTube)，自動隱藏鼠標
     fromEvent(document, 'visibilitychange').subscribe(() => {
       if (document.hidden && this.syncService.awareness) {
         this.syncService.awareness.setLocalStateField('cursor', null);
       }
     });
 
-    // 路由訂閱與切換專案邏輯
     this.route.paramMap.subscribe((params) => {
       const routeId = params.get('id');
       const targetId =
         routeId || this.storageService.getLocalStorageItem('last_project_id');
 
       if (!targetId) {
-        console.warn(
-          '[Router] 網址與本地快取皆無專案 ID，表格將維持完全空白。',
-        );
         this.tasks = [];
         return;
       }
 
-      // 核心防禦二：阻斷 Angular 路由雙重觸發
-      // 如果要切換的房間 ID 與當前一致，直接阻擋，嚴防錯誤的 cleanup 導致畫面自毀消失！
-      if (this.projectId === targetId) {
-        return;
-      }
+      if (this.projectId === targetId) return;
 
-      console.log(`[Router] 偵測到專案切換！目標 ProjectId: ${targetId}`);
       this.cleanupCurrentRoom();
       this.projectId = targetId;
       this.storageService.setLocalStorageItem('last_project_id', targetId);
@@ -174,13 +149,9 @@ export class CoEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.cleanupCurrentRoom();
-    if (this.mouseMoveSub) {
-      this.mouseMoveSub.unsubscribe();
-    }
+    if (this.mouseMoveSub) this.mouseMoveSub.unsubscribe();
   }
 
-  // 核心防禦一：攔截瀏覽器重新整理 (F5) 或關閉分頁
-  // 確保在 WebSocket 斷線前，主動把自己的 Awareness (頭像/鼠標) 從房間內抹除
   @HostListener('window:beforeunload', ['$event'])
   unloadHandler(event: Event) {
     this.forceRemoveSelfFromRoom();
@@ -194,15 +165,9 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * 雙軌寫入機制 (Track A / Track B)
-   * 處理畫面上任何一個輸入框或儲存格的變更
-   */
   onFieldChange(taskId: string, field: string, value: any) {
-    // Track A (共編軌)：零延遲寫入 Yjs 記憶體，讓線上夥伴立刻看到變化
     this.syncService.updateTaskField(taskId, field, value);
 
-    // Track B (持久軌)：獨立儲存格別的防抖計時器，延遲 1 秒後才打後端 API (CQRS)
     const timerKey = `${taskId}-${field}`;
     if (this.saveTimers.has(timerKey))
       clearTimeout(this.saveTimers.get(timerKey));
@@ -216,15 +181,9 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     );
   }
 
-  /**
-   * 意圖導向命令分流器 (CQRS Command Dispatcher)
-   * 負責將使用者的操作轉譯為後端對應的更新 API
-   */
   private dispatchPersistCommand(taskId: string, field: string) {
     const currentTask = this.tasks.find((t) => t.taskId === taskId);
-    if (!currentTask) {
-      return;
-    }
+    if (!currentTask) return;
 
     switch (field) {
       case 'name':
@@ -249,15 +208,13 @@ export class CoEditorComponent implements OnInit, OnDestroy {
         break;
       case 'startDate':
       case 'endDate':
-        const safeStart = currentTask.startDate ? currentTask.startDate : null;
-        const safeEnd = currentTask.endDate ? currentTask.endDate : null;
         this.projectService
           .updateTaskSchedule(
             this.projectId,
             taskId,
             this.currentTenantId,
-            safeStart,
-            safeEnd,
+            currentTask.startDate || null,
+            currentTask.endDate || null,
           )
           .subscribe();
         break;
@@ -299,19 +256,13 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * 清理當前協作房間，釋放記憶體並重置狀態
-   */
   private cleanupCurrentRoom() {
-    console.log(`[System] 開始清理舊專案房間狀態... [${this.projectId}]`);
-    this.forceRemoveSelfFromRoom(); // 離開時也確保抹除狀態
-
+    this.forceRemoveSelfFromRoom();
     if (this.syncService.sharedTasks && this.yjsObserver) {
       try {
         this.syncService.sharedTasks.unobserveDeep(this.yjsObserver);
       } catch (e) {}
     }
-
     this.syncService.leaveProjectRoom();
     this.tasks = [];
     this.activeSelections.clear();
@@ -319,33 +270,21 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     this.activeCollaborators = [];
   }
 
-  /**
-   * 初始化協作房間
-   */
   private initCollaborationRoom() {
-    console.log(
-      `[System] 正在初始化新專案房間: [${this.projectId}], 租戶: [${this.currentTenantId}]`,
-    );
-
     this.syncService.joinProjectRoom(this.projectId, this.currentTenantId);
     this.syncService.sharedTasks.observeDeep(this.yjsObserver);
-
-    // 一進房就向大家廣播自己的身分 (包含姓名與隨機指派的顏色)
     this.syncService.awareness.setLocalStateField('user', this.currentUser);
 
-    // 監聽房間內任何 Awareness (游標/選取/身分) 的變更
     this.syncService.awareness.on('change', () => {
       const states = Array.from(
         this.syncService.awareness.getStates().values(),
       );
-
       this.activeSelections.clear();
       this.remoteCursors = [];
       this.activeCollaborators = [];
       const seenUsers = new Set<string>();
 
       states.forEach((state: any) => {
-        // 1. 處理「儲存格聚焦」高亮
         if (
           state.selection &&
           state.user &&
@@ -356,8 +295,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             state.user,
           );
         }
-
-        // 2. 處理「遠端鼠標」渲染座標
         if (
           state.cursor &&
           state.user &&
@@ -370,8 +307,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             y: state.cursor.y,
           });
         }
-
-        // 3. 處理「右上角線上名單」去重顯示
         if (state.user && state.user.name !== this.currentUser.name) {
           if (!seenUsers.has(state.user.name)) {
             seenUsers.add(state.user.name);
@@ -383,45 +318,33 @@ export class CoEditorComponent implements OnInit, OnDestroy {
           }
         }
       });
-      this.cdr.detectChanges(); // 通知 Angular 刷新畫面
+      this.cdr.detectChanges();
     });
 
-    // 同步守衛 (Sync Guard)：等待 WebSocket 連線且 Yjs 狀態合併完成後，才進行 DB 檢查
     this.syncService.isReady$
       .pipe(
         filter((isReady) => isReady === true),
         take(1),
       )
       .subscribe(() => {
-        console.log(
-          '[System] 🟢 WebSocket 遠端連線與同步已完成，開始檢查共享記憶體狀態...',
-        );
         this.loadTasksFromDatabase();
       });
   }
 
-  /**
-   * 負責將 Yjs 的記憶體資料同步推入 Angular 的綁定陣列，並執行排序
-   */
   private syncYjsToAngular(): void {
     this.zone.run(() => {
+      // 🌟 Y.Map 解析為 JSON
       const yjsTasksArray = Array.from(
         this.syncService.sharedTasks.values(),
-      ) as Task[];
+      ).map((val: any) => {
+        return typeof val.toJSON === 'function' ? val.toJSON() : val;
+      }) as any[];
 
-      //  防禦機制：萬一遭遇異常封包導致 Yjs 回傳空陣列，攔截並保護現有畫面
-      if (yjsTasksArray.length === 0 && this.tasks.length > 0) {
-        console.warn(
-          '[System] 攔截到異常的空陣列覆寫事件，為保護畫面已忽略此次同步。',
-        );
-        return;
-      }
+      if (yjsTasksArray.length === 0 && this.tasks.length > 0) return;
 
-      // 預設以開始日期 (startDate) 排序，若無則依 displayId
       yjsTasksArray.sort((a, b) => {
         const dateA = a.startDate ? new Date(a.startDate).getTime() : Infinity;
         const dateB = b.startDate ? new Date(b.startDate).getTime() : Infinity;
-
         if (dateA === dateB) {
           const idA = a.displayId || '';
           const idB = b.displayId || '';
@@ -430,56 +353,45 @@ export class CoEditorComponent implements OnInit, OnDestroy {
         return dateA - dateB;
       });
 
-      this.tasks = [...yjsTasksArray]; // 產生新參考以觸發 PrimeNG 重新渲染
+      this.tasks = [...yjsTasksArray];
       this.cdr.markForCheck();
       this.cdr.detectChanges();
     });
   }
 
-  /**
-   * 資料庫載入與雙重鎖定防禦
-   */
   private loadTasksFromDatabase() {
     const currentYjsSize = Array.from(
       this.syncService.sharedTasks.keys(),
     ).length;
 
     if (currentYjsSize === 0) {
-      console.log('[System] 本地 Yjs 為空，向資料庫發出請求...');
       this.syncService
         .getProjectTasks(this.projectId, this.currentTenantId)
         .subscribe({
-          next: (backendTasks: Task[]) => {
-            // 核心防禦三：雙重檢查鎖定 (Double-Checked Locking)
-            // 檢查在等待 HTTP API 回傳的時間差內，WebSocket 是否已搶先同步資料
+          next: (backendTasks: any[]) => {
             const sizeAfterHttp = Array.from(
               this.syncService.sharedTasks.keys(),
             ).length;
             if (sizeAfterHttp > 0) {
-              console.warn(
-                '[System] ⚠️ 遠端 Yjs 資料已在 HTTP 回傳前抵達！自動放棄資料庫樂觀覆寫。',
-              );
               this.syncYjsToAngular();
               return;
             }
 
-            console.log('[System] 寫入資料庫初始資料至 Yjs 共享記憶體...');
             this.syncService.ydoc.transact(() => {
               backendTasks.forEach((t) => {
                 t.dependencies = t.dependencies || [];
-                this.syncService.sharedTasks.set(t.taskId, t);
+                // 🌟 將 JSON 資料封裝為 Y.Map 存入
+                const taskYMap = new Y.Map();
+                Object.keys(t).forEach((k) => taskYMap.set(k, (t as any)[k]));
+                this.syncService.sharedTasks.set(t.taskId, taskYMap);
               });
             }, 'db-load');
           },
-          error: (err) => console.error('[Error] 無法從後端取得任務資料:', err),
         });
     } else {
-      console.log('[System] 協作房間內已有其他線上資料，直接同步至本地畫面。');
       this.syncYjsToAngular();
     }
   }
-
-  // Awareness 輔助方法：儲存格焦點追蹤
 
   onCellFocus(taskId: string, field: string) {
     this.syncService.setUserSelection(taskId, field, this.currentUser);
@@ -492,8 +404,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
   getCollaborator(taskId: string, field: string) {
     return this.activeSelections.get(`${taskId}-${field}`);
   }
-
-  // UI 輔助方法
 
   getDerivedStatus(progress: number): {
     label: string;
@@ -514,8 +424,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       .join(', ');
   }
 
-  updateDependencies(task: Task, inputValue: string) {
-    // 支援以逗號分隔輸入多筆依賴
+  updateDependencies(task: any, inputValue: string) {
     const displayIdArray = inputValue
       ? inputValue
           .split(',')
@@ -526,16 +435,13 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     this.onFieldChange(task.taskId, 'dependencies', displayIdArray);
   }
 
-  /**
-   *  建立新任務機制 (預測編號 + CQRS 同步)
-   * */
   addNewTask(): void {
     if (this.isCreatingTask) return;
     this.isCreatingTask = true;
     const defaultName = '新任務 ' + (this.tasks.length + 1);
 
     this.syncService.createTask(defaultName).subscribe({
-      next: (res: TaskAddedResult) => {
+      next: (res: any) => {
         this.isCreatingTask = false;
         if (res && res.success === false) {
           this.systemMessageService.showError(
@@ -546,16 +452,20 @@ export class CoEditorComponent implements OnInit, OnDestroy {
         }
 
         const serverTaskId = res.taskId;
-        if (!serverTaskId) {
-          return;
-        }
+        if (!serverTaskId) return;
 
-        // 計算下一個預測的流水號 (DisplayID)
-        const cachedCode = localStorage.getItem('currentProjectCode');
-        const prefix = cachedCode || 'TSK';
+        let prefix = localStorage.getItem('currentProjectCode') || 'TSK';
         let maxNumber = 0;
 
         if (this.tasks.length > 0) {
+          // 🌟 TypeScript 嚴格模式安全檢查
+          const firstValidTask = this.tasks.find(
+            (t) => t.displayId && t.displayId.includes('-'),
+          );
+          if (firstValidTask && firstValidTask.displayId) {
+            prefix = firstValidTask.displayId.split('-')[0];
+          }
+
           for (const t of this.tasks) {
             if (t.displayId && t.displayId.includes('-')) {
               const parts = t.displayId.split('-');
@@ -566,8 +476,8 @@ export class CoEditorComponent implements OnInit, OnDestroy {
             }
           }
         }
+
         const predictedDisplayId = `${prefix}-${maxNumber + 1}`;
-        // 寫入 Yjs 讓 UI 顯示
         this.handleTaskCreationSuccess(
           serverTaskId,
           predictedDisplayId,
@@ -594,7 +504,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     displayId: string,
     taskName: string,
   ) {
-    const newTaskData: Task = {
+    const newTaskData: any = {
       taskId: taskId,
       displayId: displayId,
       name: taskName,
@@ -605,16 +515,17 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       progress: 0,
       dependencies: [],
     };
+
+    // 🌟 新建時也封裝為 Y.Map 存入
+    const taskYMap = new Y.Map();
+    Object.keys(newTaskData).forEach((k) => taskYMap.set(k, newTaskData[k]));
+
     this.syncService.ydoc.transact(() => {
-      this.syncService.sharedTasks.set(taskId, newTaskData);
+      this.syncService.sharedTasks.set(taskId, taskYMap);
     }, 'task-create');
     this.cdr.detectChanges();
   }
 
-  /**
-   * 轉譯 DisplayID 為 UUID 以供後端儲存
-   * @param displayIds
-   */
   private resolveDisplayIdsToTaskIds(displayIds: string[]): string[] {
     return displayIds
       .map((dId) => {
@@ -627,9 +538,7 @@ export class CoEditorComponent implements OnInit, OnDestroy {
 
   private persistDependencies(taskId: string) {
     const currentTask = this.tasks.find((t) => t.taskId === taskId);
-    if (!currentTask) {
-      return;
-    }
+    if (!currentTask) return;
     const taskIds = this.resolveDisplayIdsToTaskIds(
       currentTask.dependencies || [],
     );
@@ -643,9 +552,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       .subscribe();
   }
 
-  /**
-   * 取得或建立 Session 級別的使用者，確保重整網頁時不會被認定為新進房間的使用者
-   */
   private getOrCreateSessionUser() {
     try {
       const cached = sessionStorage.getItem('chrono_weaver_user');
@@ -669,11 +575,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     return newUser;
   }
 
-  // 漏斗篩選器所需之 Getter (動態擷取不重複選項)
-
-  /**
-   * 取得 Module 漏斗篩選器下拉選單
-   */
   get moduleOptions() {
     const modules = Array.from(
       new Set(
@@ -683,9 +584,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     return modules.map((m) => ({ label: m, value: m }));
   }
 
-  /**
-   * 取得 任務類型 漏斗篩選器下拉選單
-   */
   get taskTypeOptions() {
     const types = Array.from(
       new Set(
@@ -695,9 +593,6 @@ export class CoEditorComponent implements OnInit, OnDestroy {
     return types.map((t) => ({ label: t, value: t }));
   }
 
-  /**
-   * 取得 指派人 漏斗篩選器下拉選單
-   */
   get assigneeOptions() {
     const assignees = Array.from(
       new Set(
@@ -705,5 +600,13 @@ export class CoEditorComponent implements OnInit, OnDestroy {
       ),
     );
     return assignees.map((a) => ({ label: a, value: a }));
+  }
+
+  navigateToSummary(): void {
+    this.router.navigate(['/project-summary']); // 確認你的路由路徑
+  }
+
+  navigateToGantt(): void {
+    this.router.navigate(['/gantt']); // 確認你的路由路徑
   }
 }

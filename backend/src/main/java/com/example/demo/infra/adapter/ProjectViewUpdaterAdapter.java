@@ -35,7 +35,7 @@ class ProjectViewUpdaterAdapter implements ProjectViewUpdaterPort {
 	public void createProject(ProjectEvent.ProjectCreated created) {
 		log.info("🪞 [Updater] 建立專案視圖: [{}]", created.projectId());
 		ProjectView entity = new ProjectView(created.projectId(), created.tenantId(), created.name(),
-				created.ownerId());
+				created.ownerId(), created.projectCode());
 		projectRepository.save(entity);
 	}
 

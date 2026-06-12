@@ -42,12 +42,12 @@
       <p-card styleClass="h-full shadow-2 border-round-xl">
         <div class="text-500 font-medium mb-3">任務完成度</div>
         <div class="flex align-items-center justify-content-between mb-2">
-          <span class="text-3xl font-bold text-900"
-            >{{ completedTasks }}
+          <span class="text-3xl font-bold text-900">
+            {{ completedTasks }}
             <span class="text-lg text-500 font-normal"
               >/ {{ tasks.length }}</span
-            ></span
-          >
+            >
+          </span>
           <i class="pi pi-check-square text-2xl text-green-500"></i>
         </div>
         <div class="text-sm text-500 mt-2">已完成的模組數量</div>
@@ -58,10 +58,10 @@
       <p-card styleClass="h-full shadow-2 border-round-xl">
         <div class="text-500 font-medium mb-3">團隊規模</div>
         <div class="flex align-items-center justify-content-between mb-2">
-          <span class="text-3xl font-bold text-900"
-            >{{ members.length }}
-            <span class="text-lg text-500 font-normal">人</span></span
-          >
+          <span class="text-3xl font-bold text-900">
+            {{ members.length }}
+            <span class="text-lg text-500 font-normal">人</span>
+          </span>
           <i class="pi pi-users text-2xl text-orange-500"></i>
         </div>
         <div class="flex mt-3">
@@ -88,13 +88,24 @@
         <ng-template pTemplate="header">
           <div class="flex justify-content-between align-items-center p-4 pb-0">
             <span class="text-xl font-bold">近期任務</span>
-            <button
-              pButton
-              label="查看甘特圖"
-              icon="pi pi-calendar"
-              class="p-button-text p-button-sm"
-              (click)="navigateToGantt()"
-            ></button>
+
+            <div class="flex align-items-center gap-2">
+              <button
+                pButton
+                label="即時共編"
+                icon="pi pi-file-edit"
+                class="p-button-outlined p-button-sm"
+                (click)="navigateToCollab()"
+              ></button>
+
+              <button
+                pButton
+                label="查看甘特圖"
+                icon="pi pi-calendar"
+                class="p-button-outlined p-button-secondary p-button-sm"
+                (click)="navigateToGantt()"
+              ></button>
+            </div>
           </div>
         </ng-template>
 
@@ -113,9 +124,9 @@
                 class="flex-1"
                 styleClass="h-1rem"
               ></p-progressBar>
-              <span class="text-sm font-medium w-3rem text-right"
-                >{{ task.progress }}%</span
-              >
+              <span class="text-sm font-medium w-3rem text-right">
+                {{ task.progress }}%
+              </span>
             </div>
           </li>
           <li *ngIf="tasks.length === 0" class="py-3 text-500 text-center">

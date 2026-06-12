@@ -1,0 +1,136 @@
+<div class="p-4 lg:p-5 w-full surface-ground min-h-screen">
+  <div
+    class="flex flex-column md:flex-row md:align-items-center justify-content-between mb-4"
+  >
+    <div>
+      <h1 class="text-3xl font-bold m-0 text-900">專案列表</h1>
+      <p class="text-500 mt-2 mb-0">您參與的所有專案與工作區</p>
+    </div>
+
+    <div class="flex align-items-center gap-3 mt-3 md:mt-0">
+      <span class="p-input-icon-left w-full md:w-auto">
+        <i class="pi pi-search"></i>
+        <input
+          pInputText
+          type="text"
+          (input)="dt.filterGlobal($any($event.target).value, 'contains')"
+          placeholder="搜尋專案、代號或負責人"
+          class="w-full md:w-20rem p-inputtext-sm"
+        />
+      </span>
+      <button
+        pButton
+        icon="pi pi-plus"
+        label="建立專案"
+        class="p-button-primary p-button-sm"
+      ></button>
+    </div>
+  </div>
+
+  <div class="card shadow-1 bg-white border-round-xl overflow-hidden">
+    <p-table
+      #dt
+      [value]="projects"
+      [loading]="loading"
+      [globalFilterFields]="['name', 'projectCode', 'ownerId']"
+      [rowHover]="true"
+      responsiveLayout="scroll"
+      styleClass="p-datatable-lg p-datatable-hoverable-rows jira-table"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 3rem"></th>
+          <th pSortableColumn="name" style="min-width: 250px">
+            專案名稱 <p-sortIcon field="name"></p-sortIcon>
+          </th>
+          <th pSortableColumn="projectCode" style="min-width: 120px">
+            代號 <p-sortIcon field="projectCode"></p-sortIcon>
+          </th>
+          <th pSortableColumn="ownerId" style="min-width: 150px">
+            專案負責人 <p-sortIcon field="ownerId"></p-sortIcon>
+          </th>
+          <th style="min-width: 120px">狀態</th>
+          <th style="width: 5rem">操作</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-project>
+        <tr (click)="goToProjectSummary(project)" class="cursor-pointer">
+          <td class="text-center" (click)="$event.stopPropagation()">
+            <i
+              class="pi pi-star text-400 hover:text-yellow-500 cursor-pointer transition-colors transition-duration-200"
+            ></i>
+          </td>
+
+          <td>
+            <div class="flex align-items-center gap-3">
+              <p-avatar
+                [label]="getProjectInitials(project.name)"
+                shape="square"
+                size="normal"
+                [style]="{
+                  'background-color': getAvatarColor(project.projectCode),
+                  color: '#ffffff',
+                  'border-radius': '6px',
+                  'font-weight': 'bold',
+                }"
+              >
+              </p-avatar>
+              <span
+                class="font-semibold text-900 text-lg hover:text-blue-600 transition-colors"
+                >{{ project.name }}</span
+              >
+            </div>
+          </td>
+
+          <td class="text-500 font-mono text-sm">{{ project.projectCode }}</td>
+
+          <td>
+            <div class="flex align-items-center gap-2">
+              <p-avatar
+                icon="pi pi-user"
+                shape="circle"
+                styleClass="bg-gray-200 text-gray-600"
+              ></p-avatar>
+              <span class="text-700">{{ project.ownerId }}</span>
+            </div>
+          </td>
+
+          <td>
+            <p-tag
+              [value]="project.status || '進行中'"
+              severity="info"
+              styleClass="px-2 py-1 text-xs"
+            ></p-tag>
+          </td>
+
+          <td class="text-center">
+            <button
+              pButton
+              pRipple
+              icon="pi pi-ellipsis-h"
+              class="p-button-rounded p-button-text p-button-plain p-button-sm"
+              (click)="$event.stopPropagation()"
+            ></button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center p-5">
+            <div
+              class="flex flex-column align-items-center justify-content-center text-500"
+            >
+              <i class="pi pi-folder-open text-6xl mb-3 text-300"></i>
+              <span class="text-lg">您目前沒有參與任何專案</span>
+              <span class="text-sm mt-1"
+                >請聯絡管理員將您加入團隊，或自行建立新專案。</span
+              >
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

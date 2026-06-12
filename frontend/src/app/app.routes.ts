@@ -6,6 +6,7 @@ import { CreateProjectComponent } from './features/project/pages/create-project/
 import { ProjectProcessingComponent } from './features/project/pages/project-processing/project-processing.component';
 import { TeamManagementComponent } from './features/team/pages/team-management/team-management.component';
 import { ProjectSummaryComponent } from './features/project/pages/project-summary/project-summary.component';
+import { ProjectListComponent } from './features/project/pages/project-list/project-list.component';
 
 export const routes: Routes = [
   {
@@ -23,6 +24,7 @@ export const routes: Routes = [
       { path: 'create-project', component: CreateProjectComponent },
       { path: 'gantt', component: GanttComponent },
       { path: 'teams', component: TeamManagementComponent },
+      { path: 'project-list', component: ProjectListComponent },
       { path: 'project-summary', component: ProjectSummaryComponent },
       { path: '', redirectTo: 'create-project', pathMatch: 'full' },
     ],

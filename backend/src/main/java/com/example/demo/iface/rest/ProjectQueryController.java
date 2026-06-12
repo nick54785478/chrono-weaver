@@ -29,7 +29,7 @@ public class ProjectQueryController {
 	private final ProjectQueryService projectQueryService;
 
 	/**
-	 * 查詢所有專案列表
+	 * 查詢該使用者所在的所有專案列表
 	 */
 	@GetMapping
 	public ResponseEntity<ProjectGottenResource> getAllProjects(@RequestHeader("X-Tenant-ID") String tenantId,

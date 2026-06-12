@@ -194,4 +194,24 @@ export class ProjectService {
     const url = `${this.baseUrl}/${projectId}/tasks/${taskId}/module`;
     return this.http.patch(url, { module }, { headers, responseType: 'text' });
   }
+
+  /**
+   * 實作：獲取當前使用者參與的所有專案清單 (Jira 風格列表用)
+   * @param tenantId 租戶識別碼
+   * @param userId 使用者 ID
+   */
+  public getMyParticipatedProjects(
+    tenantId: string,
+    userId: string,
+  ): Observable<any[]> {
+    const headers = new HttpHeaders().set('X-Tenant-ID', tenantId);
+
+    // 對應後端的 @RequestParam String userId
+    const params = { userId: userId };
+
+    return this.http.get<any>(this.baseUrl, { headers, params }).pipe(
+      // 自動解包，依據你的 API 回傳格式調整
+      map((response) => response.data || response.projects || response || []),
+    );
+  }
 }

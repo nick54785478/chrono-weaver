@@ -7,7 +7,7 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import Gantt from 'frappe-gantt';
 
 // PrimeNG 模組（用於工具列）
@@ -54,6 +54,7 @@ export class GanttComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private projectService: ProjectService,
     private storageService: StorageService,
   ) {}
@@ -212,6 +213,17 @@ export class GanttComponent implements OnInit, AfterViewInit, OnDestroy {
       hash = moduleName.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
+  }
+
+  // 🌟 跳轉至專案總覽
+  navigateToSummary(): void {
+    this.router.navigate(['/project-summary']);
+  }
+
+  // 🌟 跳轉至即時共編頁面
+  navigateToCoEditor(): void {
+    // 💡 請將 '/projects/co-editor' 替換為你實際設定的共編頁面路由
+    this.router.navigate(['/co-editor']);
   }
 
   ngOnDestroy() {

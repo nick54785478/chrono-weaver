@@ -16,21 +16,8 @@ import { ProjectTeamService } from '../../../../shared/services/project-team.ser
 import { SystemStorageKey } from '../../../../core/enums/system-storage.enum';
 import { ProjectService } from '../../../../shared/services/project.service';
 import { SystemMessageService } from '../../../../shared/services/system-message.service';
-
-// 假設你有的 API 介面
-interface ProjectView {
-  projectId: string;
-  name: string;
-  projectCode?: string;
-  ownerId: string;
-}
-
-interface TaskView {
-  taskId: string;
-  name: string;
-  progress: number;
-  status?: string;
-}
+import { TaskView } from '../../../../shared/models/task-view.model';
+import { ProjectView } from '../../../../shared/models/project-view.model';
 
 @Component({
   selector: 'app-project-summary',
@@ -53,15 +40,16 @@ export class ProjectSummaryComponent implements OnInit {
   tenantId: string = '';
   loading: boolean = true;
 
-  project: ProjectView | null = null;
   members: TeamMember[] = [];
   tasks: TaskView[] = [];
+  project: ProjectView | null = null;
 
   overallProgress: number = 0;
   completedTasks: number = 0;
 
   constructor(
     private router: Router,
+    // private route: ActivatedRoute,
     private storageService: StorageService,
     private teamService: ProjectTeamService,
     private projectService: ProjectService, // 🌟 注入專案服務
@@ -74,7 +62,7 @@ export class ProjectSummaryComponent implements OnInit {
         SystemStorageKey.LAST_PROJECT_ID,
       ) || '';
     this.tenantId =
-      this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || 'DDD';
+      this.storageService.getLocalStorageItem(SystemStorageKey.TENANT) || '';
 
     if (this.projectId) {
       this.loadDashboardData();
@@ -149,5 +137,12 @@ export class ProjectSummaryComponent implements OnInit {
    */
   navigateToGantt(): void {
     this.router.navigate(['/gantt']);
+  }
+
+  // 🌟 新增跳轉至共編頁面的方法
+  navigateToCollab(): void {
+    // 請將這裡的字串替換成你實際的共編路由設定
+    // 例如跳轉到 Yjs + 共同編輯表格的頁面
+    this.router.navigate(['/co-editor']);
   }
 }

@@ -28,20 +28,21 @@ import com.example.demo.application.shared.exception.DomainException;
 import com.example.demo.application.shared.response.ProjectResponse;
 
 /**
- * 基礎設施層：Pekko Event Sourcing 的宿主 (Host)
+ * 基礎設施層：Pekko Event Sourcing 的專案宿主 (Host)
  *
  * <pre>
  * <b>架構定位與職責：</b>
  * <ul>
- * <li><b>技術外殼 (Imperative Shell)：</b> 負責處理 Actor 生命週期、分散式路由、事件持久化 (Cassandra) 與回覆前端。</li>
- * <li><b>無業務邏輯：</b> 這裡「沒有」任何業務規則的判斷。它純粹扮演「總機」的角色：收信 (Command) -> 轉交給大腦 (Project Aggregate) -> 將大腦產生的記憶 (Event) 寫入硬碟 -> 回報成功。</li>
+ * <li><b>技術外殼 (Imperative Shell)：</b> 負責處理 Actor 生命週期、分散式路由、事件持久化 (Cassandra) 與回覆 API。</li>
+ * <li><b>純粹總機模式：</b> 這裡「沒有」也不該有任何 If-Else 業務邏輯判斷。</li>
+ * <li><b>運作流程：</b> 收信 (Command) -> 轉交給大腦 (Project Aggregate) 校驗 -> 將大腦產出的記憶 (Event) 寫入硬碟 -> 回報成功。</li>
  * </ul>
  * </pre>
  */
 public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectCommand, ProjectEvent, Project> {
 
 	// ==========================================
-	// 1. 基礎設定與生命週期
+	// 1. 基礎設定與多租戶生命週期
 	// ==========================================
 	public static final String TAG = "ProjectEvent";
 	public static final EntityTypeKey<ProjectCommand> ENTITY_TYPE_KEY = EntityTypeKey.create(ProjectCommand.class,
@@ -51,14 +52,20 @@ public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectComman
 		super(persistenceId);
 	}
 
+	/**
+	 * 建立專案 Actor 行為。
+	 * 
+	 * @param tenantId  租戶 ID (確保跨組織資料物理隔離)
+	 * @param projectId 專案 UUID
+	 */
 	public static Behavior<ProjectCommand> create(String tenantId, String projectId) {
-		// 使用底線 "_" 作為分隔符，避免踩到 Pekko 實體 ID 的管線符號 "|" 地雷
+		// 實務地雷迴避：使用底線 "_" 作為分隔符，避免踩到 Pekko 底層 Persistence ID 的管線符號 "|" 格式地雷
 		return new ProjectEventSourcedActor(PersistenceId.of(ENTITY_TYPE_KEY.name(), tenantId + "_" + projectId));
 	}
 
 	@Override
 	public Set<String> tagsFor(ProjectEvent event) {
-		// 為所有 Event 貼上標籤，讓 CQRS 的 Projection 可以透過這個 Tag 抓取事件串流
+		// 為所有 Event 貼上標籤，讓 CQRS 的 Projection 可以透過這個 Tag 抓取事件，非同步更新資料庫視圖
 		return Collections.singleton(TAG);
 	}
 
@@ -87,14 +94,14 @@ public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectComman
 
 	private Effect<ProjectEvent, Project> onCreateProject(Project state, CreateProject command) {
 		try {
-			// 呼叫純領域聚合根的靜態工廠方法進行無中生有的初始化
+			// 1. 意圖交由領域層處理：呼叫純領域聚合根的靜態工廠方法進行無中生有的初始化
 			List<ProjectEvent> events = Project.initialize(command.tenantId(), command.projectId(),
 					command.projectCode(), command.name(), command.ownerId());
 
-			// 持久化大腦產出的 Event，並透過 replyTo 回覆成功
+			// 2. 狀態持久化：將大腦產出的 Event 寫入日誌，並透過 replyTo 回覆呼叫方 (通常是 Controller)
 			return Effect().persist(events).thenReply(command.replyTo(), s -> new ProjectResponse(true, "專案建立成功"));
 		} catch (DomainException e) {
-			// 攔截大腦拋出的業務防禦異常，並回覆失敗原因
+			// 3. 防禦機制：攔截大腦拋出的業務異常 (如名稱空白)，並安全地回覆失敗原因
 			return Effect().reply(command.replyTo(), new ProjectResponse(false, e.getMessage()));
 		}
 	}
@@ -110,13 +117,9 @@ public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectComman
 
 	private Effect<ProjectEvent, Project> onUpdateTaskName(Project state, UpdateTaskName cmd) {
 		try {
-			// 1. 呼叫大腦 (Project Aggregate) 的業務方法
 			List<ProjectEvent> events = state.updateTaskName(cmd.taskId(), cmd.name());
-
-			// 2. 持久化事件並回覆前端
 			return Effect().persist(events).thenReply(cmd.replyTo(), s -> new ProjectResponse(true, "任務名稱更新成功"));
 		} catch (DomainException e) {
-			// 3. 處理領域層拋出的業務校驗錯誤
 			return Effect().reply(cmd.replyTo(), new ProjectResponse(false, e.getMessage()));
 		}
 	}
@@ -167,13 +170,11 @@ public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectComman
 	}
 
 	// ==========================================
-	// 🌟 新增：更新模組 (Epic) 的持久化實作
+	// 模組 (Epic) 持久化實作
 	// ==========================================
 	private Effect<ProjectEvent, Project> onUpdateTaskModule(Project state, UpdateTaskModule cmd) {
 		try {
-			// 呼叫聚合根方法產生事件
 			List<ProjectEvent> events = state.updateTaskModule(cmd.taskId(), cmd.module());
-			// 持久化並回覆
 			return Effect().persist(events).thenReply(cmd.replyTo(), s -> new ProjectResponse(true, "任務所屬模組更新成功"));
 		} catch (DomainException e) {
 			return Effect().reply(cmd.replyTo(), new ProjectResponse(false, e.getMessage()));
@@ -186,7 +187,8 @@ public class ProjectEventSourcedActor extends EventSourcedBehavior<ProjectComman
 	@Override
 	public EventHandler<Project, ProjectEvent> eventHandler() {
 		return newEventHandlerBuilder().forAnyState()
-				// 因為我們在 Project.java 裡面已經寫好了 Pattern Matching 來處理所有 Event
+				// 記憶與肉體的同步：
+				// 因為我們在 Project.java (領域層) 裡面已經寫好了 Java 21 Pattern Matching 來處理所有 Event，
 				// 所以這裡的實作變得不可思議的乾淨，直接把 Event 丟給大腦的 apply() 方法進行狀態演化即可！
 				.onAnyEvent((state, event) -> state.apply(event));
 	}
