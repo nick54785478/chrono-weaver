@@ -14,6 +14,7 @@ public class DomainEventJacksonModule extends SimpleModule {
 	 */
 	private static final long serialVersionUID = -1903129351249709501L;
 
+	
 	public DomainEventJacksonModule() {
 		super("CQRSJacksonModule");
 

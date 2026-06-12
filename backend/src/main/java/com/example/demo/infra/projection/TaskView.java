@@ -57,11 +57,11 @@ public class TaskView {
 
 	@Column(name = "progress")
 	private int progress;
-	
+
 	@Column(name = "module")
 	private String module;
 
-	// 🌟 降維打擊：拿掉 @ElementCollection 與關聯表
+	// 降維打擊：拿掉 @ElementCollection 與關聯表
 	@Convert(converter = StringSetConverter.class)
 	@Column(name = "dependencies", columnDefinition = "text")
 	private Set<String> dependencies = new HashSet<>();
@@ -70,7 +70,7 @@ public class TaskView {
 	private java.time.Instant createdAt = java.time.Instant.now();
 
 	// ==========================================
-	// 🌟 新增：任務屬性與人員指派區塊
+	// 新增：任務屬性與人員指派區塊
 	// ==========================================
 
 	/**

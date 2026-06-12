@@ -8,7 +8,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 /**
- * 企業級表格即時共編 WebSocket 配置 (STOMP 協定) *
+ * 企業級表格即時共編 WebSocket 配置 (STOMP 協定)
  * 
  * <pre>
  * <b>架構設計重點：</b>
@@ -38,7 +38,7 @@ public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer 
 
 	@Override
 	public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
-		// 🌟 關鍵效能優化：調整傳輸緩衝上限，防止 Yjs 大快照（Snapshot）造成連線中斷
+		// 關鍵效能優化：調整傳輸緩衝上限，防止 Yjs 大快照（Snapshot）造成連線中斷
 		registration.setMessageSizeLimit(512 * 1024); // 單次訊息上限 512 KB
 		registration.setSendBufferSizeLimit(1024 * 1024); // 發送緩衝區上限 1 MB
 		registration.setSendTimeLimit(20 * 1000); // 發送逾時 20 秒

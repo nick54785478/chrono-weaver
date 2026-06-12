@@ -11,13 +11,11 @@ import com.example.demo.infra.projection.TeamMemberView;
 @Repository
 public interface TeamMemberRepository extends JpaRepository<TeamMemberView, String> {
 
-	// 🌟 精準定位某一筆成員視圖紀錄
 	Optional<TeamMemberView> findByProjectIdAndUserId(String projectId, String userId);
 
-	// 🌟 供前端 REST 查詢 WBS 線上指派名單使用
 	List<TeamMemberView> findAllByProjectId(String projectId);
 
 	void deleteByProjectIdAndUserId(String projectId, String userId);
-	
+
 	List<TeamMemberView> findByTenantIdAndProjectIdOrderByJoinedAtAsc(String tenantId, String projectId);
 }

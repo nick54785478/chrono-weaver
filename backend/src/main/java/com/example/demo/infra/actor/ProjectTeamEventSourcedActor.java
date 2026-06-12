@@ -19,11 +19,12 @@ import com.example.demo.application.shared.response.ProjectResponse;
 
 /**
  * 基礎設施層：ProjectTeam 的 Event Sourcing 宿主 (Host) Actor
- * <p>
+ * 
+ * <pre>
  * <b>架構邊界：</b> 本元件專責處理「團隊成員」併發操作的持久化。將 Team 與 Project 拆分為兩個獨立的 Actor (聚合根)，
  * 是為了縮小鎖定範圍 (Locking Scope)，確保「修改專案名稱」與「增減團隊成員」這兩種不同頻率的操作
  * 能完全平行處理，不會發生鎖定衝突與效能瓶頸。
- * </p>
+ * </pre>
  */
 public class ProjectTeamEventSourcedActor
 		extends EventSourcedBehavior<ProjectTeamCommand, ProjectTeamEvent, ProjectTeam> {
