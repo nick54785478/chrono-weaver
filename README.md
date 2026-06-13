@@ -16,16 +16,15 @@ Chrono Weaver 是一款專為中大型團隊設計的敏捷專案管理與 WBS (
 
 每個專案 (Project) 與團隊 (ProjectTeam) 都是一個獨立的 Event Sourced Actor (聚合根)。
 透過 **Actor Mailbox** 保證單一實體的指令是循序執行的，**完全免除了關聯式資料庫的悲觀鎖 (Pessimistic Lock) 或樂觀鎖 (Optimistic Lock) 帶來的效能瓶頸**。
+
 所有的狀態變更不直接 Update 資料庫，而是化為不可變的「領域事件 (Domain Events)」附加至 Event Journal (如 Cassandra) 中，提供完美的稽核軌跡 (Audit Trail)。
 >* Event Sourced Aggregates： 每個專案 (Project) 與團隊 (ProjectTeam) 都是獨立的 Actor。狀態變更不直接 UPDATE 資料庫，而是化為不可變的「領域事件 (Domain Events)」附加至 Cassandra Event Journal 中。
 >* 無鎖併發防禦 (Lock-free Concurrency)： 透過 Actor Mailbox 保證單一實體的指令循序執行。在高併發下，衝突在進入 Actor 前就被排解為先後順序，完全免除資料庫悲觀鎖導致的效能瓶頸。
 
 * **Read Side (查詢端 - 最終一致性)：**
 
-透過 Pekko Projection 非同步訂閱 Event Journal，收到事件後，將狀態投影 (Project) 到關聯式資料庫 (PostgreSQL) 中高度平坦化的視圖表 (ProjectView, TaskView)。
-前端的列表與甘特圖查詢直接對接這些平坦化視圖，達成極致的查詢吞吐量 (High Throughput)，徹底消滅 ORM N+1 查詢地雷。
-  
->* 平坦化視圖： 透過 Pekko Projection 非同步訂閱事件，將狀態投影至 PostgreSQL 的視圖表。前端查詢直接對接平坦化視圖，徹底消滅 ORM N+1 查詢地雷，達成極致的查詢吞吐量。
+>* 後端透過 Pekko Projection 非同步訂閱 Event Journal，收到事件後，將狀態投影 (Project) 到關聯式資料庫 (PostgreSQL) 中高度平坦化的視圖表 (ProjectView, TaskView)。
+>* 前端的列表與甘特圖查詢直接對接這些平坦化視圖，達成極致的查詢吞吐量 (High Throughput)，徹底消滅 ORM N+1 查詢地雷。
 
 ### 2. 分散式環境的一致性保證 (Pekko Cluster Sharding)
 
